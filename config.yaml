@@ -1,0 +1,13 @@
+http:
+  hostname: "localhost"
+  port: 3456
+
+app:
+  name: "Chmoly"
+  show_banner: true
+  encryptionKey: "abcdefghijklmnopqrstuvwxyz123456"
+
+database:
+  driver: "sqlite3"
+  connection: "dbs/main.db?_journal=WAL&_timeout=5000&_fk=true"
+  test: ":memory:?_journal=WAL&_timeout=5000&_fk=true"
