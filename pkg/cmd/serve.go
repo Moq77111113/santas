@@ -2,14 +2,8 @@ package cmd
 
 import (
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
-	"github.com/moq77111113/chmoly-santas/internal/apis"
-	"github.com/moq77111113/chmoly-santas/internal/core"
-	httpserver "github.com/moq77111113/chmoly-santas/pkg/http"
-
+	"github.com/moq77111113/chmoly-santas/pkg/services"
 	"github.com/spf13/cobra"
 )
 
@@ -26,35 +20,13 @@ func NewServeCmd() *cobra.Command {
 
 func serve(cmd *cobra.Command, args []string) error {
 
-	app := core.NewApp()
+	c := services.NewContainer()
 
-	go app.Notifier.Listen()
-
-	router, err := apis.Init(app)
-
-	if err != nil {
-		return err
-	}
-
-	server := httpserver.New(router)
-
-	server.Run()
-
-	go func() {
-		err := <-server.Notify()
-		if err != nil {
-			log.Printf("Error: %v", err)
+	defer func() {
+		if err := c.Shutdown(); err != nil {
+			log.Fatalf("shutdown error: %v", err)
 		}
 	}()
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	<-signals
-
-	if err := server.Shutdown(); err != nil {
-		log.Printf("Error: %v", err)
-	}
 	return nil
-
 }
