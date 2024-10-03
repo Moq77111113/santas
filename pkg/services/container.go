@@ -8,9 +8,11 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/labstack/echo/v4"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/moq77111113/chmoly-santas/config"
 	"github.com/moq77111113/chmoly-santas/ent"
 
+	// ent runtime
 	_ "github.com/moq77111113/chmoly-santas/ent/runtime"
 )
 
