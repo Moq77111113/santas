@@ -8,7 +8,6 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/moq77111113/chmoly-santas/ent/group"
 	"github.com/moq77111113/chmoly-santas/ent/member"
 )
 
@@ -21,27 +20,24 @@ type Member struct {
 	Name string `json:"name,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the MemberQuery when eager-loading is set.
-	Edges         MemberEdges `json:"edges"`
-	group_members *int
-	selectValues  sql.SelectValues
+	Edges        MemberEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // MemberEdges holds the relations/edges for other nodes in the graph.
 type MemberEdges struct {
 	// Groups holds the value of the groups edge.
-	Groups *Group `json:"groups,omitempty"`
+	Groups []*Group `json:"groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [1]bool
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e MemberEdges) GroupsOrErr() (*Group, error) {
-	if e.Groups != nil {
+// was not loaded in eager-loading.
+func (e MemberEdges) GroupsOrErr() ([]*Group, error) {
+	if e.loadedTypes[0] {
 		return e.Groups, nil
-	} else if e.loadedTypes[0] {
-		return nil, &NotFoundError{label: group.Label}
 	}
 	return nil, &NotLoadedError{edge: "groups"}
 }
@@ -55,8 +51,6 @@ func (*Member) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case member.FieldName:
 			values[i] = new(sql.NullString)
-		case member.ForeignKeys[0]: // group_members
-			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -83,13 +77,6 @@ func (m *Member) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				m.Name = value.String
-			}
-		case member.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for edge-field group_members", value)
-			} else if value.Valid {
-				m.group_members = new(int)
-				*m.group_members = int(value.Int64)
 			}
 		default:
 			m.selectValues.Set(columns[i], values[i])

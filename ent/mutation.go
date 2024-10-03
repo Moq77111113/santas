@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/moq77111113/chmoly-santas/ent/exclusion"
 	"github.com/moq77111113/chmoly-santas/ent/group"
 	"github.com/moq77111113/chmoly-santas/ent/member"
 	"github.com/moq77111113/chmoly-santas/ent/predicate"
@@ -24,9 +25,593 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeGroup  = "Group"
-	TypeMember = "Member"
+	TypeExclusion = "Exclusion"
+	TypeGroup     = "Group"
+	TypeMember    = "Member"
 )
+
+// ExclusionMutation represents an operation that mutates the Exclusion nodes in the graph.
+type ExclusionMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	clearedFields  map[string]struct{}
+	group          *int
+	clearedgroup   bool
+	member         *int
+	clearedmember  bool
+	exclude        *int
+	clearedexclude bool
+	done           bool
+	oldValue       func(context.Context) (*Exclusion, error)
+	predicates     []predicate.Exclusion
+}
+
+var _ ent.Mutation = (*ExclusionMutation)(nil)
+
+// exclusionOption allows management of the mutation configuration using functional options.
+type exclusionOption func(*ExclusionMutation)
+
+// newExclusionMutation creates new mutation for the Exclusion entity.
+func newExclusionMutation(c config, op Op, opts ...exclusionOption) *ExclusionMutation {
+	m := &ExclusionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeExclusion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withExclusionID sets the ID field of the mutation.
+func withExclusionID(id int) exclusionOption {
+	return func(m *ExclusionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Exclusion
+		)
+		m.oldValue = func(ctx context.Context) (*Exclusion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Exclusion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withExclusion sets the old Exclusion of the mutation.
+func withExclusion(node *Exclusion) exclusionOption {
+	return func(m *ExclusionMutation) {
+		m.oldValue = func(context.Context) (*Exclusion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ExclusionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ExclusionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ExclusionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ExclusionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Exclusion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *ExclusionMutation) SetGroupID(i int) {
+	m.group = &i
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *ExclusionMutation) GroupID() (r int, exists bool) {
+	v := m.group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the Exclusion entity.
+// If the Exclusion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExclusionMutation) OldGroupID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *ExclusionMutation) ResetGroupID() {
+	m.group = nil
+}
+
+// SetMemberID sets the "member_id" field.
+func (m *ExclusionMutation) SetMemberID(i int) {
+	m.member = &i
+}
+
+// MemberID returns the value of the "member_id" field in the mutation.
+func (m *ExclusionMutation) MemberID() (r int, exists bool) {
+	v := m.member
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMemberID returns the old "member_id" field's value of the Exclusion entity.
+// If the Exclusion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExclusionMutation) OldMemberID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMemberID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMemberID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMemberID: %w", err)
+	}
+	return oldValue.MemberID, nil
+}
+
+// ResetMemberID resets all changes to the "member_id" field.
+func (m *ExclusionMutation) ResetMemberID() {
+	m.member = nil
+}
+
+// SetExcludeID sets the "exclude_id" field.
+func (m *ExclusionMutation) SetExcludeID(i int) {
+	m.exclude = &i
+}
+
+// ExcludeID returns the value of the "exclude_id" field in the mutation.
+func (m *ExclusionMutation) ExcludeID() (r int, exists bool) {
+	v := m.exclude
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExcludeID returns the old "exclude_id" field's value of the Exclusion entity.
+// If the Exclusion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExclusionMutation) OldExcludeID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExcludeID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExcludeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExcludeID: %w", err)
+	}
+	return oldValue.ExcludeID, nil
+}
+
+// ResetExcludeID resets all changes to the "exclude_id" field.
+func (m *ExclusionMutation) ResetExcludeID() {
+	m.exclude = nil
+}
+
+// ClearGroup clears the "group" edge to the Group entity.
+func (m *ExclusionMutation) ClearGroup() {
+	m.clearedgroup = true
+	m.clearedFields[exclusion.FieldGroupID] = struct{}{}
+}
+
+// GroupCleared reports if the "group" edge to the Group entity was cleared.
+func (m *ExclusionMutation) GroupCleared() bool {
+	return m.clearedgroup
+}
+
+// GroupIDs returns the "group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// GroupID instead. It exists only for internal usage by the builders.
+func (m *ExclusionMutation) GroupIDs() (ids []int) {
+	if id := m.group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGroup resets all changes to the "group" edge.
+func (m *ExclusionMutation) ResetGroup() {
+	m.group = nil
+	m.clearedgroup = false
+}
+
+// ClearMember clears the "member" edge to the Member entity.
+func (m *ExclusionMutation) ClearMember() {
+	m.clearedmember = true
+	m.clearedFields[exclusion.FieldMemberID] = struct{}{}
+}
+
+// MemberCleared reports if the "member" edge to the Member entity was cleared.
+func (m *ExclusionMutation) MemberCleared() bool {
+	return m.clearedmember
+}
+
+// MemberIDs returns the "member" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MemberID instead. It exists only for internal usage by the builders.
+func (m *ExclusionMutation) MemberIDs() (ids []int) {
+	if id := m.member; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMember resets all changes to the "member" edge.
+func (m *ExclusionMutation) ResetMember() {
+	m.member = nil
+	m.clearedmember = false
+}
+
+// ClearExclude clears the "exclude" edge to the Member entity.
+func (m *ExclusionMutation) ClearExclude() {
+	m.clearedexclude = true
+	m.clearedFields[exclusion.FieldExcludeID] = struct{}{}
+}
+
+// ExcludeCleared reports if the "exclude" edge to the Member entity was cleared.
+func (m *ExclusionMutation) ExcludeCleared() bool {
+	return m.clearedexclude
+}
+
+// ExcludeIDs returns the "exclude" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ExcludeID instead. It exists only for internal usage by the builders.
+func (m *ExclusionMutation) ExcludeIDs() (ids []int) {
+	if id := m.exclude; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetExclude resets all changes to the "exclude" edge.
+func (m *ExclusionMutation) ResetExclude() {
+	m.exclude = nil
+	m.clearedexclude = false
+}
+
+// Where appends a list predicates to the ExclusionMutation builder.
+func (m *ExclusionMutation) Where(ps ...predicate.Exclusion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ExclusionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ExclusionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Exclusion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ExclusionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ExclusionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Exclusion).
+func (m *ExclusionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ExclusionMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.group != nil {
+		fields = append(fields, exclusion.FieldGroupID)
+	}
+	if m.member != nil {
+		fields = append(fields, exclusion.FieldMemberID)
+	}
+	if m.exclude != nil {
+		fields = append(fields, exclusion.FieldExcludeID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ExclusionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case exclusion.FieldGroupID:
+		return m.GroupID()
+	case exclusion.FieldMemberID:
+		return m.MemberID()
+	case exclusion.FieldExcludeID:
+		return m.ExcludeID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ExclusionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case exclusion.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case exclusion.FieldMemberID:
+		return m.OldMemberID(ctx)
+	case exclusion.FieldExcludeID:
+		return m.OldExcludeID(ctx)
+	}
+	return nil, fmt.Errorf("unknown Exclusion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ExclusionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case exclusion.FieldGroupID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case exclusion.FieldMemberID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMemberID(v)
+		return nil
+	case exclusion.FieldExcludeID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExcludeID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Exclusion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ExclusionMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ExclusionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ExclusionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Exclusion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ExclusionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ExclusionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ExclusionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Exclusion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ExclusionMutation) ResetField(name string) error {
+	switch name {
+	case exclusion.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case exclusion.FieldMemberID:
+		m.ResetMemberID()
+		return nil
+	case exclusion.FieldExcludeID:
+		m.ResetExcludeID()
+		return nil
+	}
+	return fmt.Errorf("unknown Exclusion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ExclusionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.group != nil {
+		edges = append(edges, exclusion.EdgeGroup)
+	}
+	if m.member != nil {
+		edges = append(edges, exclusion.EdgeMember)
+	}
+	if m.exclude != nil {
+		edges = append(edges, exclusion.EdgeExclude)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ExclusionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case exclusion.EdgeGroup:
+		if id := m.group; id != nil {
+			return []ent.Value{*id}
+		}
+	case exclusion.EdgeMember:
+		if id := m.member; id != nil {
+			return []ent.Value{*id}
+		}
+	case exclusion.EdgeExclude:
+		if id := m.exclude; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ExclusionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ExclusionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ExclusionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedgroup {
+		edges = append(edges, exclusion.EdgeGroup)
+	}
+	if m.clearedmember {
+		edges = append(edges, exclusion.EdgeMember)
+	}
+	if m.clearedexclude {
+		edges = append(edges, exclusion.EdgeExclude)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ExclusionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case exclusion.EdgeGroup:
+		return m.clearedgroup
+	case exclusion.EdgeMember:
+		return m.clearedmember
+	case exclusion.EdgeExclude:
+		return m.clearedexclude
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ExclusionMutation) ClearEdge(name string) error {
+	switch name {
+	case exclusion.EdgeGroup:
+		m.ClearGroup()
+		return nil
+	case exclusion.EdgeMember:
+		m.ClearMember()
+		return nil
+	case exclusion.EdgeExclude:
+		m.ClearExclude()
+		return nil
+	}
+	return fmt.Errorf("unknown Exclusion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ExclusionMutation) ResetEdge(name string) error {
+	switch name {
+	case exclusion.EdgeGroup:
+		m.ResetGroup()
+		return nil
+	case exclusion.EdgeMember:
+		m.ResetMember()
+		return nil
+	case exclusion.EdgeExclude:
+		m.ResetExclude()
+		return nil
+	}
+	return fmt.Errorf("unknown Exclusion edge %s", name)
+}
 
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
@@ -455,7 +1040,8 @@ type MemberMutation struct {
 	id            *int
 	name          *string
 	clearedFields map[string]struct{}
-	groups        *int
+	groups        map[int]struct{}
+	removedgroups map[int]struct{}
 	clearedgroups bool
 	done          bool
 	oldValue      func(context.Context) (*Member, error)
@@ -596,9 +1182,14 @@ func (m *MemberMutation) ResetName() {
 	m.name = nil
 }
 
-// SetGroupsID sets the "groups" edge to the Group entity by id.
-func (m *MemberMutation) SetGroupsID(id int) {
-	m.groups = &id
+// AddGroupIDs adds the "groups" edge to the Group entity by ids.
+func (m *MemberMutation) AddGroupIDs(ids ...int) {
+	if m.groups == nil {
+		m.groups = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.groups[ids[i]] = struct{}{}
+	}
 }
 
 // ClearGroups clears the "groups" edge to the Group entity.
@@ -611,20 +1202,29 @@ func (m *MemberMutation) GroupsCleared() bool {
 	return m.clearedgroups
 }
 
-// GroupsID returns the "groups" edge ID in the mutation.
-func (m *MemberMutation) GroupsID() (id int, exists bool) {
-	if m.groups != nil {
-		return *m.groups, true
+// RemoveGroupIDs removes the "groups" edge to the Group entity by IDs.
+func (m *MemberMutation) RemoveGroupIDs(ids ...int) {
+	if m.removedgroups == nil {
+		m.removedgroups = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.groups, ids[i])
+		m.removedgroups[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedGroups returns the removed IDs of the "groups" edge to the Group entity.
+func (m *MemberMutation) RemovedGroupsIDs() (ids []int) {
+	for id := range m.removedgroups {
+		ids = append(ids, id)
 	}
 	return
 }
 
 // GroupsIDs returns the "groups" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// GroupsID instead. It exists only for internal usage by the builders.
 func (m *MemberMutation) GroupsIDs() (ids []int) {
-	if id := m.groups; id != nil {
-		ids = append(ids, *id)
+	for id := range m.groups {
+		ids = append(ids, id)
 	}
 	return
 }
@@ -633,6 +1233,7 @@ func (m *MemberMutation) GroupsIDs() (ids []int) {
 func (m *MemberMutation) ResetGroups() {
 	m.groups = nil
 	m.clearedgroups = false
+	m.removedgroups = nil
 }
 
 // Where appends a list predicates to the MemberMutation builder.
@@ -780,9 +1381,11 @@ func (m *MemberMutation) AddedEdges() []string {
 func (m *MemberMutation) AddedIDs(name string) []ent.Value {
 	switch name {
 	case member.EdgeGroups:
-		if id := m.groups; id != nil {
-			return []ent.Value{*id}
+		ids := make([]ent.Value, 0, len(m.groups))
+		for id := range m.groups {
+			ids = append(ids, id)
 		}
+		return ids
 	}
 	return nil
 }
@@ -790,12 +1393,23 @@ func (m *MemberMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MemberMutation) RemovedEdges() []string {
 	edges := make([]string, 0, 1)
+	if m.removedgroups != nil {
+		edges = append(edges, member.EdgeGroups)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *MemberMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case member.EdgeGroups:
+		ids := make([]ent.Value, 0, len(m.removedgroups))
+		for id := range m.removedgroups {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
@@ -822,9 +1436,6 @@ func (m *MemberMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *MemberMutation) ClearEdge(name string) error {
 	switch name {
-	case member.EdgeGroups:
-		m.ClearGroups()
-		return nil
 	}
 	return fmt.Errorf("unknown Member unique edge %s", name)
 }

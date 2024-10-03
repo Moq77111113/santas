@@ -22,7 +22,6 @@ func (Member) Fields() []ent.Field {
 func (Member) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("groups", Group.Type).
-			Ref("members").
-			Unique(),
+			Ref("members"),
 	}
 }

@@ -42,23 +42,19 @@ func (mu *MemberUpdate) SetNillableName(s *string) *MemberUpdate {
 	return mu
 }
 
-// SetGroupsID sets the "groups" edge to the Group entity by ID.
-func (mu *MemberUpdate) SetGroupsID(id int) *MemberUpdate {
-	mu.mutation.SetGroupsID(id)
+// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
+func (mu *MemberUpdate) AddGroupIDs(ids ...int) *MemberUpdate {
+	mu.mutation.AddGroupIDs(ids...)
 	return mu
 }
 
-// SetNillableGroupsID sets the "groups" edge to the Group entity by ID if the given value is not nil.
-func (mu *MemberUpdate) SetNillableGroupsID(id *int) *MemberUpdate {
-	if id != nil {
-		mu = mu.SetGroupsID(*id)
+// AddGroups adds the "groups" edges to the Group entity.
+func (mu *MemberUpdate) AddGroups(g ...*Group) *MemberUpdate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
 	}
-	return mu
-}
-
-// SetGroups sets the "groups" edge to the Group entity.
-func (mu *MemberUpdate) SetGroups(g *Group) *MemberUpdate {
-	return mu.SetGroupsID(g.ID)
+	return mu.AddGroupIDs(ids...)
 }
 
 // Mutation returns the MemberMutation object of the builder.
@@ -66,10 +62,25 @@ func (mu *MemberUpdate) Mutation() *MemberMutation {
 	return mu.mutation
 }
 
-// ClearGroups clears the "groups" edge to the Group entity.
+// ClearGroups clears all "groups" edges to the Group entity.
 func (mu *MemberUpdate) ClearGroups() *MemberUpdate {
 	mu.mutation.ClearGroups()
 	return mu
+}
+
+// RemoveGroupIDs removes the "groups" edge to Group entities by IDs.
+func (mu *MemberUpdate) RemoveGroupIDs(ids ...int) *MemberUpdate {
+	mu.mutation.RemoveGroupIDs(ids...)
+	return mu
+}
+
+// RemoveGroups removes "groups" edges to Group entities.
+func (mu *MemberUpdate) RemoveGroups(g ...*Group) *MemberUpdate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return mu.RemoveGroupIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -113,10 +124,10 @@ func (mu *MemberUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if mu.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
+			Rel:     sqlgraph.M2M,
 			Inverse: true,
 			Table:   member.GroupsTable,
-			Columns: []string{member.GroupsColumn},
+			Columns: member.GroupsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
@@ -124,12 +135,28 @@ func (mu *MemberUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := mu.mutation.GroupsIDs(); len(nodes) > 0 {
+	if nodes := mu.mutation.RemovedGroupsIDs(); len(nodes) > 0 && !mu.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
+			Rel:     sqlgraph.M2M,
 			Inverse: true,
 			Table:   member.GroupsTable,
-			Columns: []string{member.GroupsColumn},
+			Columns: member.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.GroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   member.GroupsTable,
+			Columns: member.GroupsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
@@ -174,23 +201,19 @@ func (muo *MemberUpdateOne) SetNillableName(s *string) *MemberUpdateOne {
 	return muo
 }
 
-// SetGroupsID sets the "groups" edge to the Group entity by ID.
-func (muo *MemberUpdateOne) SetGroupsID(id int) *MemberUpdateOne {
-	muo.mutation.SetGroupsID(id)
+// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
+func (muo *MemberUpdateOne) AddGroupIDs(ids ...int) *MemberUpdateOne {
+	muo.mutation.AddGroupIDs(ids...)
 	return muo
 }
 
-// SetNillableGroupsID sets the "groups" edge to the Group entity by ID if the given value is not nil.
-func (muo *MemberUpdateOne) SetNillableGroupsID(id *int) *MemberUpdateOne {
-	if id != nil {
-		muo = muo.SetGroupsID(*id)
+// AddGroups adds the "groups" edges to the Group entity.
+func (muo *MemberUpdateOne) AddGroups(g ...*Group) *MemberUpdateOne {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
 	}
-	return muo
-}
-
-// SetGroups sets the "groups" edge to the Group entity.
-func (muo *MemberUpdateOne) SetGroups(g *Group) *MemberUpdateOne {
-	return muo.SetGroupsID(g.ID)
+	return muo.AddGroupIDs(ids...)
 }
 
 // Mutation returns the MemberMutation object of the builder.
@@ -198,10 +221,25 @@ func (muo *MemberUpdateOne) Mutation() *MemberMutation {
 	return muo.mutation
 }
 
-// ClearGroups clears the "groups" edge to the Group entity.
+// ClearGroups clears all "groups" edges to the Group entity.
 func (muo *MemberUpdateOne) ClearGroups() *MemberUpdateOne {
 	muo.mutation.ClearGroups()
 	return muo
+}
+
+// RemoveGroupIDs removes the "groups" edge to Group entities by IDs.
+func (muo *MemberUpdateOne) RemoveGroupIDs(ids ...int) *MemberUpdateOne {
+	muo.mutation.RemoveGroupIDs(ids...)
+	return muo
+}
+
+// RemoveGroups removes "groups" edges to Group entities.
+func (muo *MemberUpdateOne) RemoveGroups(g ...*Group) *MemberUpdateOne {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
+	}
+	return muo.RemoveGroupIDs(ids...)
 }
 
 // Where appends a list predicates to the MemberUpdate builder.
@@ -275,10 +313,10 @@ func (muo *MemberUpdateOne) sqlSave(ctx context.Context) (_node *Member, err err
 	}
 	if muo.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
+			Rel:     sqlgraph.M2M,
 			Inverse: true,
 			Table:   member.GroupsTable,
-			Columns: []string{member.GroupsColumn},
+			Columns: member.GroupsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
@@ -286,12 +324,28 @@ func (muo *MemberUpdateOne) sqlSave(ctx context.Context) (_node *Member, err err
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := muo.mutation.GroupsIDs(); len(nodes) > 0 {
+	if nodes := muo.mutation.RemovedGroupsIDs(); len(nodes) > 0 && !muo.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
+			Rel:     sqlgraph.M2M,
 			Inverse: true,
 			Table:   member.GroupsTable,
-			Columns: []string{member.GroupsColumn},
+			Columns: member.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.GroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   member.GroupsTable,
+			Columns: member.GroupsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),

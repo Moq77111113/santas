@@ -8,6 +8,8 @@ import (
 )
 
 type (
+
+	// UI serves the ui pages
 	UI struct {
 		conf *config.Config
 	}
@@ -17,8 +19,8 @@ func init() {
 	Register(new(UI))
 }
 
-func (u *UI) Init(c *services.Container) error {
-	u.conf = c.Config
+func (h *UI) Init(c *services.Container) error {
+	h.conf = c.Config
 	return nil
 }
 

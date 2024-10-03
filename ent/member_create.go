@@ -26,23 +26,19 @@ func (mc *MemberCreate) SetName(s string) *MemberCreate {
 	return mc
 }
 
-// SetGroupsID sets the "groups" edge to the Group entity by ID.
-func (mc *MemberCreate) SetGroupsID(id int) *MemberCreate {
-	mc.mutation.SetGroupsID(id)
+// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
+func (mc *MemberCreate) AddGroupIDs(ids ...int) *MemberCreate {
+	mc.mutation.AddGroupIDs(ids...)
 	return mc
 }
 
-// SetNillableGroupsID sets the "groups" edge to the Group entity by ID if the given value is not nil.
-func (mc *MemberCreate) SetNillableGroupsID(id *int) *MemberCreate {
-	if id != nil {
-		mc = mc.SetGroupsID(*id)
+// AddGroups adds the "groups" edges to the Group entity.
+func (mc *MemberCreate) AddGroups(g ...*Group) *MemberCreate {
+	ids := make([]int, len(g))
+	for i := range g {
+		ids[i] = g[i].ID
 	}
-	return mc
-}
-
-// SetGroups sets the "groups" edge to the Group entity.
-func (mc *MemberCreate) SetGroups(g *Group) *MemberCreate {
-	return mc.SetGroupsID(g.ID)
+	return mc.AddGroupIDs(ids...)
 }
 
 // Mutation returns the MemberMutation object of the builder.
@@ -114,10 +110,10 @@ func (mc *MemberCreate) createSpec() (*Member, *sqlgraph.CreateSpec) {
 	}
 	if nodes := mc.mutation.GroupsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
+			Rel:     sqlgraph.M2M,
 			Inverse: true,
 			Table:   member.GroupsTable,
-			Columns: []string{member.GroupsColumn},
+			Columns: member.GroupsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt),
@@ -126,7 +122,6 @@ func (mc *MemberCreate) createSpec() (*Member, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.group_members = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

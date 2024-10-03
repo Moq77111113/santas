@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/moq77111113/chmoly-santas/ent/exclusion"
 	"github.com/moq77111113/chmoly-santas/ent/group"
 	"github.com/moq77111113/chmoly-santas/ent/member"
 )
@@ -74,8 +75,9 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			group.Table:  group.ValidColumn,
-			member.Table: member.ValidColumn,
+			exclusion.Table: exclusion.ValidColumn,
+			group.Table:     group.ValidColumn,
+			member.Table:    member.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

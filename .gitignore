@@ -40,6 +40,15 @@ README.html
 CHANGELOG.html
 LICENSE.html
 
-ui/build/
-node_modules/
-.svelte-kit/
+
+node_modules
+.svelte-kit
+# ui build folder
+build
+
+
+# configuration file
+config.yaml
+
+# database file
+dbs

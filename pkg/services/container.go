@@ -16,19 +16,30 @@ import (
 	_ "github.com/moq77111113/chmoly-santas/ent/runtime"
 )
 
-type Container struct {
-	Config *config.Config
-	Web    *echo.Echo
-	DB     *sql.DB
-	ORM    *ent.Client
-}
+type (
+	Container struct {
+		Validator    *Validator
+		Config       *config.Config
+		Web          *echo.Echo
+		DB           *sql.DB
+		ORM          *ent.Client
+		Repositories *Repositories
+	}
+
+	Repositories struct {
+		Group     *GroupRepo
+		Exclusion *ExclusionRepo
+	}
+)
 
 func NewContainer() *Container {
 	c := new(Container)
 	c.initConfig()
+	c.initValidator()
 	c.initWeb()
 	c.initDb()
 	c.initORM()
+	c.initRepos()
 
 	return c
 }
@@ -56,16 +67,20 @@ func (c *Container) initConfig() {
 	slog.SetLogLoggerLevel(slog.LevelDebug) // TODO: move to config
 }
 
+func (c *Container) initValidator() {
+	c.Validator = NewValidator()
+}
+
 func (c *Container) initWeb() {
 	c.Web = echo.New()
+	c.Web.Validator = c.Validator
 	c.Web.HideBanner = true
 }
 
 func (c *Container) initDb() {
 	var err error
 
-	connection := c.Config.Database.Test
-
+	connection := c.Config.Database.Connection
 	c.DB, err = sql.Open(c.Config.Database.Driver, connection)
 
 	if err != nil {
@@ -80,4 +95,10 @@ func (c *Container) initORM() {
 	if err := c.ORM.Schema.Create(context.Background()); err != nil {
 		panic(err)
 	}
+}
+
+func (c *Container) initRepos() {
+	c.Repositories = new(Repositories)
+	c.Repositories.Group = NewGroupRepo(c.ORM)
+	c.Repositories.Exclusion = NewExclusionRepo(c.ORM)
 }

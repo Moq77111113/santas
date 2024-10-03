@@ -8,10 +8,50 @@ import (
 )
 
 var (
+	// ExclusionsColumns holds the columns for the "exclusions" table.
+	ExclusionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "group_id", Type: field.TypeInt},
+		{Name: "member_id", Type: field.TypeInt},
+		{Name: "exclude_id", Type: field.TypeInt},
+	}
+	// ExclusionsTable holds the schema information for the "exclusions" table.
+	ExclusionsTable = &schema.Table{
+		Name:       "exclusions",
+		Columns:    ExclusionsColumns,
+		PrimaryKey: []*schema.Column{ExclusionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "exclusions_groups_group",
+				Columns:    []*schema.Column{ExclusionsColumns[1]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "exclusions_members_member",
+				Columns:    []*schema.Column{ExclusionsColumns[2]},
+				RefColumns: []*schema.Column{MembersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "exclusions_members_exclude",
+				Columns:    []*schema.Column{ExclusionsColumns[3]},
+				RefColumns: []*schema.Column{MembersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "exclusion_group_id_member_id_exclude_id",
+				Unique:  true,
+				Columns: []*schema.Column{ExclusionsColumns[1], ExclusionsColumns[2], ExclusionsColumns[3]},
+			},
+		},
+	}
 	// GroupsColumns holds the columns for the "groups" table.
 	GroupsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "name", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString, Unique: true},
 	}
 	// GroupsTable holds the schema information for the "groups" table.
 	GroupsTable = &schema.Table{
@@ -23,29 +63,51 @@ var (
 	MembersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString, Unique: true},
-		{Name: "group_members", Type: field.TypeInt, Nullable: true},
 	}
 	// MembersTable holds the schema information for the "members" table.
 	MembersTable = &schema.Table{
 		Name:       "members",
 		Columns:    MembersColumns,
 		PrimaryKey: []*schema.Column{MembersColumns[0]},
+	}
+	// GroupMembersColumns holds the columns for the "group_members" table.
+	GroupMembersColumns = []*schema.Column{
+		{Name: "group_id", Type: field.TypeInt},
+		{Name: "member_id", Type: field.TypeInt},
+	}
+	// GroupMembersTable holds the schema information for the "group_members" table.
+	GroupMembersTable = &schema.Table{
+		Name:       "group_members",
+		Columns:    GroupMembersColumns,
+		PrimaryKey: []*schema.Column{GroupMembersColumns[0], GroupMembersColumns[1]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "members_groups_members",
-				Columns:    []*schema.Column{MembersColumns[2]},
+				Symbol:     "group_members_group_id",
+				Columns:    []*schema.Column{GroupMembersColumns[0]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
-				OnDelete:   schema.SetNull,
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "group_members_member_id",
+				Columns:    []*schema.Column{GroupMembersColumns[1]},
+				RefColumns: []*schema.Column{MembersColumns[0]},
+				OnDelete:   schema.Cascade,
 			},
 		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		ExclusionsTable,
 		GroupsTable,
 		MembersTable,
+		GroupMembersTable,
 	}
 )
 
 func init() {
-	MembersTable.ForeignKeys[0].RefTable = GroupsTable
+	ExclusionsTable.ForeignKeys[0].RefTable = GroupsTable
+	ExclusionsTable.ForeignKeys[1].RefTable = MembersTable
+	ExclusionsTable.ForeignKeys[2].RefTable = MembersTable
+	GroupMembersTable.ForeignKeys[0].RefTable = GroupsTable
+	GroupMembersTable.ForeignKeys[1].RefTable = MembersTable
 }

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -24,7 +25,6 @@ type MemberQuery struct {
 	inters     []Interceptor
 	predicates []predicate.Member
 	withGroups *GroupQuery
-	withFKs    bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -75,7 +75,7 @@ func (mq *MemberQuery) QueryGroups() *GroupQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(member.Table, member.FieldID, selector),
 			sqlgraph.To(group.Table, group.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, member.GroupsTable, member.GroupsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, member.GroupsTable, member.GroupsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
 		return fromU, nil
@@ -370,18 +370,11 @@ func (mq *MemberQuery) prepareQuery(ctx context.Context) error {
 func (mq *MemberQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Member, error) {
 	var (
 		nodes       = []*Member{}
-		withFKs     = mq.withFKs
 		_spec       = mq.querySpec()
 		loadedTypes = [1]bool{
 			mq.withGroups != nil,
 		}
 	)
-	if mq.withGroups != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, member.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Member).scanValues(nil, columns)
 	}
@@ -401,8 +394,9 @@ func (mq *MemberQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Membe
 		return nodes, nil
 	}
 	if query := mq.withGroups; query != nil {
-		if err := mq.loadGroups(ctx, query, nodes, nil,
-			func(n *Member, e *Group) { n.Edges.Groups = e }); err != nil {
+		if err := mq.loadGroups(ctx, query, nodes,
+			func(n *Member) { n.Edges.Groups = []*Group{} },
+			func(n *Member, e *Group) { n.Edges.Groups = append(n.Edges.Groups, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -410,33 +404,62 @@ func (mq *MemberQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Membe
 }
 
 func (mq *MemberQuery) loadGroups(ctx context.Context, query *GroupQuery, nodes []*Member, init func(*Member), assign func(*Member, *Group)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*Member)
-	for i := range nodes {
-		if nodes[i].group_members == nil {
-			continue
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int]*Member)
+	nids := make(map[int]map[*Member]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
 		}
-		fk := *nodes[i].group_members
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
 	}
-	if len(ids) == 0 {
-		return nil
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(member.GroupsTable)
+		s.Join(joinT).On(s.C(group.FieldID), joinT.C(member.GroupsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(member.GroupsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(member.GroupsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
 	}
-	query.Where(group.IDIn(ids...))
-	neighbors, err := query.All(ctx)
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := int(values[0].(*sql.NullInt64).Int64)
+				inValue := int(values[1].(*sql.NullInt64).Int64)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Member]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Group](ctx, query, qr, query.inters)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
+		nodes, ok := nids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "group_members" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected "groups" node returned %v`, n.ID)
 		}
-		for i := range nodes {
-			assign(nodes[i], n)
+		for kn := range nodes {
+			assign(kn, n)
 		}
 	}
 	return nil

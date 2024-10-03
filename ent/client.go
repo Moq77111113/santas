@@ -15,6 +15,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/moq77111113/chmoly-santas/ent/exclusion"
 	"github.com/moq77111113/chmoly-santas/ent/group"
 	"github.com/moq77111113/chmoly-santas/ent/member"
 )
@@ -24,6 +25,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Exclusion is the client for interacting with the Exclusion builders.
+	Exclusion *ExclusionClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
 	// Member is the client for interacting with the Member builders.
@@ -39,6 +42,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Exclusion = NewExclusionClient(c.config)
 	c.Group = NewGroupClient(c.config)
 	c.Member = NewMemberClient(c.config)
 }
@@ -131,10 +135,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		Group:  NewGroupClient(cfg),
-		Member: NewMemberClient(cfg),
+		ctx:       ctx,
+		config:    cfg,
+		Exclusion: NewExclusionClient(cfg),
+		Group:     NewGroupClient(cfg),
+		Member:    NewMemberClient(cfg),
 	}, nil
 }
 
@@ -152,17 +157,18 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		Group:  NewGroupClient(cfg),
-		Member: NewMemberClient(cfg),
+		ctx:       ctx,
+		config:    cfg,
+		Exclusion: NewExclusionClient(cfg),
+		Group:     NewGroupClient(cfg),
+		Member:    NewMemberClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Group.
+//		Exclusion.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -184,6 +190,7 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Exclusion.Use(hooks...)
 	c.Group.Use(hooks...)
 	c.Member.Use(hooks...)
 }
@@ -191,6 +198,7 @@ func (c *Client) Use(hooks ...Hook) {
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.Exclusion.Intercept(interceptors...)
 	c.Group.Intercept(interceptors...)
 	c.Member.Intercept(interceptors...)
 }
@@ -198,12 +206,195 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *ExclusionMutation:
+		return c.Exclusion.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
 	case *MemberMutation:
 		return c.Member.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// ExclusionClient is a client for the Exclusion schema.
+type ExclusionClient struct {
+	config
+}
+
+// NewExclusionClient returns a client for the Exclusion from the given config.
+func NewExclusionClient(c config) *ExclusionClient {
+	return &ExclusionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `exclusion.Hooks(f(g(h())))`.
+func (c *ExclusionClient) Use(hooks ...Hook) {
+	c.hooks.Exclusion = append(c.hooks.Exclusion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `exclusion.Intercept(f(g(h())))`.
+func (c *ExclusionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Exclusion = append(c.inters.Exclusion, interceptors...)
+}
+
+// Create returns a builder for creating a Exclusion entity.
+func (c *ExclusionClient) Create() *ExclusionCreate {
+	mutation := newExclusionMutation(c.config, OpCreate)
+	return &ExclusionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Exclusion entities.
+func (c *ExclusionClient) CreateBulk(builders ...*ExclusionCreate) *ExclusionCreateBulk {
+	return &ExclusionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ExclusionClient) MapCreateBulk(slice any, setFunc func(*ExclusionCreate, int)) *ExclusionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ExclusionCreateBulk{err: fmt.Errorf("calling to ExclusionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ExclusionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ExclusionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Exclusion.
+func (c *ExclusionClient) Update() *ExclusionUpdate {
+	mutation := newExclusionMutation(c.config, OpUpdate)
+	return &ExclusionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ExclusionClient) UpdateOne(e *Exclusion) *ExclusionUpdateOne {
+	mutation := newExclusionMutation(c.config, OpUpdateOne, withExclusion(e))
+	return &ExclusionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ExclusionClient) UpdateOneID(id int) *ExclusionUpdateOne {
+	mutation := newExclusionMutation(c.config, OpUpdateOne, withExclusionID(id))
+	return &ExclusionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Exclusion.
+func (c *ExclusionClient) Delete() *ExclusionDelete {
+	mutation := newExclusionMutation(c.config, OpDelete)
+	return &ExclusionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ExclusionClient) DeleteOne(e *Exclusion) *ExclusionDeleteOne {
+	return c.DeleteOneID(e.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ExclusionClient) DeleteOneID(id int) *ExclusionDeleteOne {
+	builder := c.Delete().Where(exclusion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ExclusionDeleteOne{builder}
+}
+
+// Query returns a query builder for Exclusion.
+func (c *ExclusionClient) Query() *ExclusionQuery {
+	return &ExclusionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeExclusion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Exclusion entity by its id.
+func (c *ExclusionClient) Get(ctx context.Context, id int) (*Exclusion, error) {
+	return c.Query().Where(exclusion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ExclusionClient) GetX(ctx context.Context, id int) *Exclusion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryGroup queries the group edge of a Exclusion.
+func (c *ExclusionClient) QueryGroup(e *Exclusion) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := e.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(exclusion.Table, exclusion.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, exclusion.GroupTable, exclusion.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(e.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMember queries the member edge of a Exclusion.
+func (c *ExclusionClient) QueryMember(e *Exclusion) *MemberQuery {
+	query := (&MemberClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := e.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(exclusion.Table, exclusion.FieldID, id),
+			sqlgraph.To(member.Table, member.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, exclusion.MemberTable, exclusion.MemberColumn),
+		)
+		fromV = sqlgraph.Neighbors(e.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryExclude queries the exclude edge of a Exclusion.
+func (c *ExclusionClient) QueryExclude(e *Exclusion) *MemberQuery {
+	query := (&MemberClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := e.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(exclusion.Table, exclusion.FieldID, id),
+			sqlgraph.To(member.Table, member.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, exclusion.ExcludeTable, exclusion.ExcludeColumn),
+		)
+		fromV = sqlgraph.Neighbors(e.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ExclusionClient) Hooks() []Hook {
+	return c.hooks.Exclusion
+}
+
+// Interceptors returns the client interceptors.
+func (c *ExclusionClient) Interceptors() []Interceptor {
+	return c.inters.Exclusion
+}
+
+func (c *ExclusionClient) mutate(ctx context.Context, m *ExclusionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ExclusionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ExclusionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ExclusionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ExclusionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Exclusion mutation op: %q", m.Op())
 	}
 }
 
@@ -323,7 +514,7 @@ func (c *GroupClient) QueryMembers(gr *Group) *MemberQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(group.Table, group.FieldID, id),
 			sqlgraph.To(member.Table, member.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, group.MembersTable, group.MembersColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, group.MembersTable, group.MembersPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(gr.driver.Dialect(), step)
 		return fromV, nil
@@ -472,7 +663,7 @@ func (c *MemberClient) QueryGroups(m *Member) *GroupQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(member.Table, member.FieldID, id),
 			sqlgraph.To(group.Table, group.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, member.GroupsTable, member.GroupsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, true, member.GroupsTable, member.GroupsPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
 		return fromV, nil
@@ -508,9 +699,9 @@ func (c *MemberClient) mutate(ctx context.Context, m *MemberMutation) (Value, er
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Group, Member []ent.Hook
+		Exclusion, Group, Member []ent.Hook
 	}
 	inters struct {
-		Group, Member []ent.Interceptor
+		Exclusion, Group, Member []ent.Interceptor
 	}
 )

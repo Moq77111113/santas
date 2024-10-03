@@ -3,7 +3,6 @@ package handlers
 import (
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/moq77111113/chmoly-santas/pkg/services"
@@ -22,19 +21,12 @@ func Bootstrap(c *services.Container) error {
 		middleware.Secure(),
 		middleware.RequestID(),
 		middleware.Gzip(),
-
 		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 			Timeout: (time.Second * 10),
 		}),
-		middleware.CSRFWithConfig(middleware.CSRFConfig{
-			TokenLookup: "form:_csrf"}))
-
-	c.Web.HTTPErrorHandler = func(err error, c echo.Context) {
-		c.Logger().Error(err)
-		c.JSON(500, map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
+	// middleware.CSRFWithConfig(middleware.CSRFConfig{
+	// 	TokenLookup: "form:_csrf"})
+	)
 
 	for _, h := range GetHandlers() {
 		if err := h.Init(c); err != nil {

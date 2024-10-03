@@ -18,13 +18,11 @@ const (
 	EdgeMembers = "members"
 	// Table holds the table name of the group in the database.
 	Table = "groups"
-	// MembersTable is the table that holds the members relation/edge.
-	MembersTable = "members"
+	// MembersTable is the table that holds the members relation/edge. The primary key declared below.
+	MembersTable = "group_members"
 	// MembersInverseTable is the table name for the Member entity.
 	// It exists in this package in order to avoid circular dependency with the "member" package.
 	MembersInverseTable = "members"
-	// MembersColumn is the table column denoting the members relation/edge.
-	MembersColumn = "group_members"
 )
 
 // Columns holds all SQL columns for group fields.
@@ -32,6 +30,12 @@ var Columns = []string{
 	FieldID,
 	FieldName,
 }
+
+var (
+	// MembersPrimaryKey and MembersColumn2 are the table columns denoting the
+	// primary key for the members relation (M2M).
+	MembersPrimaryKey = []string{"group_id", "member_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -73,6 +77,6 @@ func newMembersStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MembersInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, MembersTable, MembersColumn),
+		sqlgraph.Edge(sqlgraph.M2M, false, MembersTable, MembersPrimaryKey...),
 	)
 }
