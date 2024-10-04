@@ -1,7 +1,17 @@
 <script>
-	import Counter from './Counter.svelte';
-	import welcome from '$lib/images/svelte-welcome.webp';
-	import welcome_fallback from '$lib/images/svelte-welcome.png';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardFooter,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 </script>
 
 <svelte:head>
@@ -9,51 +19,54 @@
 	<meta name="description" content="Svelte demo app" />
 </svelte:head>
 
-<section>
-	<h1>
-		<span class="welcome">
-			<picture>
-				<source srcset={welcome} type="image/webp" />
-				<img src={welcome_fallback} alt="Welcome" />
-			</picture>
-		</span>
-
-		to your new<br />SvelteKit app
-	</h1>
-
-	<h2>
-		try editing <strong>src/routes/+page.svelte</strong>
-	</h2>
-
-	<Counter />
-</section>
-
-<style>
-	section {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		flex: 0.6;
-	}
-
-	h1 {
-		width: 100%;
-	}
-
-	.welcome {
-		display: block;
-		position: relative;
-		width: 100%;
-		height: 0;
-		padding: 0 0 calc(100% * 495 / 2048) 0;
-	}
-
-	.welcome img {
-		position: absolute;
-		width: 100%;
-		height: 100%;
-		top: 0;
-		display: block;
-	}
-</style>
+<Card class="w-full max-w-2xl mx-auto">
+	<CardHeader>
+		<CardTitle>Secret Santa Generator</CardTitle>
+		<CardDescription
+			>Add participants, set exclusions, and generate Secret Santa assignments</CardDescription
+		>
+	</CardHeader>
+	<CardContent>
+		<div class="space-y-4">
+			<div class="flex space-x-2">
+				<Input type="text" placeholder="Enter participant name" />
+				<Button>Add</Button>
+			</div>
+			<ScrollArea class="h-full w-full rounded-md border p-4">
+				<!-- {participants.map((participant, index) => (
+            <div key={index} class="mb-4 pb-4 border-b last:border-b-0">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-semibold">{participant.name}</span>
+                <Button variant="destructive" size="sm" onClick={() => removeParticipant(index)}>Remove</Button>
+              </div>
+              <div class="pl-4">
+                <Label class="text-sm font-medium mb-2 block">Exclusions:</Label>
+                {participants.filter(p => p.name !== participant.name).map((otherParticipant, otherIndex) => (
+                  <div key={otherIndex} class="flex items-center space-x-2 mb-1">
+                    <Checkbox
+                      id={`${index}-${otherIndex}`}
+                      checked={participant.exclusions.includes(otherParticipant.name)}
+                      onCheckedChange={() => toggleExclusion(index, otherParticipant.name)}
+                    />
+                    <Label htmlFor={`${index}-${otherIndex}`}>{otherParticipant.name}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))} -->
+			</ScrollArea>
+			<!-- {error && <div class="text-red-500">{error}</div>} -->
+			<Button class="w-full" disabled>Generate Assignments</Button>
+		</div>
+	</CardContent>
+	<CardFooter>
+		<div class="w-full">
+			<h3 class="text-lg font-semibold mb-2">Assignments:</h3>
+			<!-- {assignments.map((assignment, index) => (
+          <div key={index} class="mb-1">
+            <strong>{assignment.giver}</strong> gives a gift to <strong>{assignment.receiver}</strong>
+          </div>
+        ))} -->
+		</div>
+	</CardFooter>
+</Card>

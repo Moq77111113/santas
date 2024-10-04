@@ -8,7 +8,21 @@ orm-install:
 orm-gen:
 	go generate ./ent
 
+
 # Run app
 .PHONY: serve
 serve:
+	$(MAKE) ui-build
 	go run cmd/chmoly/chmoly.go serve
+
+.PHONY: serve-only
+serve-only:
+	go run cmd/chmoly/chmoly.go serve
+
+.PHONY: ui-install
+ui-install:
+	cd ui && npm install && cd ..
+
+.PHONY: ui-build
+ui-build:
+	cd ui && npm run build && cd ..

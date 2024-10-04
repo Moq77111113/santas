@@ -157,6 +157,7 @@ func (h *Group) AddMember(ctx echo.Context) error {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
+	h.BroadcastGroup(id, fmt.Sprintf("New member added: %s", form.MemberName))
 	return ctx.JSON(http.StatusCreated, gr)
 }
 
@@ -206,14 +207,14 @@ func (h *Group) AddExclusion(ctx echo.Context) error {
 func (h *Group) GetExclusions(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
 
-	mms, err := h.ExclusionRepo.GetExclusions(ctx.Request().Context(), id)
+	exc, err := h.ExclusionRepo.GetExclusions(ctx.Request().Context(), id)
 
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusNotFound, "members not found")
 	}
 
-	return ctx.JSON(http.StatusOK, mms)
+	return ctx.JSON(http.StatusOK, exc)
 }
 
 func (h *Group) RegisterChannel(ctx echo.Context) error {
