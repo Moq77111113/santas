@@ -18,7 +18,7 @@ type (
 		ExcludeId int
 	}
 
-	MemberExclusions struct {
+	GroupExclusions struct {
 		Member          *ent.Member   `json:"member"`
 		ExcludedMembers []*ent.Member `json:"excludedMembers"`
 	}
@@ -37,7 +37,7 @@ func (s *ExclusionRepo) AddExclusion(ctx context.Context, payload AddExclusion) 
 		Save(ctx)
 }
 
-func (s *ExclusionRepo) GetExclusions(ctx context.Context, groupId int) ([]*MemberExclusions, error) {
+func (s *ExclusionRepo) GetExclusions(ctx context.Context, groupId int) ([]*GroupExclusions, error) {
 	exc, err := s.orm.Exclusion.
 		Query().
 		Where(exclusion.GroupIDEQ(groupId)).
@@ -49,7 +49,7 @@ func (s *ExclusionRepo) GetExclusions(ctx context.Context, groupId int) ([]*Memb
 		return nil, err
 	}
 
-	return toMemberExclusions(exc), nil
+	return toGroupExclusions(exc), nil
 
 }
 
@@ -57,7 +57,7 @@ func (s *ExclusionRepo) RemoveExclusion(ctx context.Context, id int) error {
 	return s.orm.Exclusion.DeleteOneID(id).Exec(ctx)
 }
 
-func toMemberExclusions(mms []*ent.Exclusion) []*MemberExclusions {
+func toGroupExclusions(mms []*ent.Exclusion) []*GroupExclusions {
 	members := make(map[int]*ent.Member)
 	excludedMembers := make([]*ent.Member, 0, len(mms))
 	for _, mm := range mms {
@@ -67,9 +67,9 @@ func toMemberExclusions(mms []*ent.Exclusion) []*MemberExclusions {
 		excludedMembers = append(excludedMembers, mm.Edges.Exclude)
 	}
 
-	res := make([]*MemberExclusions, 0, len(members))
+	res := make([]*GroupExclusions, 0, len(members))
 	for _, member := range members {
-		res = append(res, &MemberExclusions{
+		res = append(res, &GroupExclusions{
 			Member:          member,
 			ExcludedMembers: excludedMembers,
 		})

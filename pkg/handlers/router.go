@@ -30,6 +30,9 @@ func Bootstrap(c *services.Container) error {
 		middleware.Gzip(),
 		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 			Timeout: (time.Second * 10),
+			Skipper: func(c echo.Context) bool {
+				return strings.Contains(c.Request().URL.Path, "events")
+			},
 		}),
 	)
 

@@ -15,6 +15,7 @@ type (
 	Group struct {
 		GroupRepo     *services.GroupRepo
 		ExclusionRepo *services.ExclusionRepo
+		SSE           *services.SSEClient
 	}
 
 	createGroupForm struct {
@@ -33,6 +34,10 @@ type (
 	}
 )
 
+const (
+	channelBase = "group"
+)
+
 func init() {
 	Register(new(Group))
 }
@@ -40,6 +45,7 @@ func init() {
 func (h *Group) Init(c *services.Container) error {
 	h.GroupRepo = c.Repositories.Group
 	h.ExclusionRepo = c.Repositories.Exclusion
+	h.SSE = c.SSE
 	return nil
 }
 
@@ -50,6 +56,7 @@ func (h *Group) Routes(g *echo.Group) {
 	groups.POST("", h.CreateGroup)
 	groups.GET("/:id", h.GetGroup, checkParamMw("id"))
 	groups.POST("/:id/member", h.AddMember, checkParamMw("id"))
+	groups.GET("/:id/events", h.RegisterChannel, checkParamMw("id"))
 	groups.GET("/:id/member", h.GetMembers, checkParamMw("id"))
 	groups.GET("/:id/exclusion", h.GetExclusions, checkParamMw("id"))
 	groups.POST("/:id/member/:memberId/exclusion", h.AddExclusion, checkParamMw("id"), checkParamMw("memberId"))
@@ -150,7 +157,6 @@ func (h *Group) AddMember(ctx echo.Context) error {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
-
 	return ctx.JSON(http.StatusCreated, gr)
 }
 
@@ -208,4 +214,23 @@ func (h *Group) GetExclusions(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, mms)
+}
+
+func (h *Group) RegisterChannel(ctx echo.Context) error {
+
+	id := ctx.Get("id").(int)
+
+	_, err := h.GroupRepo.Get(ctx.Request().Context(), id)
+	if err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusNotFound, "group not found")
+	}
+
+	fmt.Printf("Registering %s in %s", ctx.RealIP(), fmt.Sprintf("%s:%d", channelBase, id))
+	h.SSE.AddClient(ctx, fmt.Sprintf("%s:%d", channelBase, id))
+	return nil
+}
+
+func (h *Group) BroadcastGroup(id int, message string) {
+	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), message)
 }

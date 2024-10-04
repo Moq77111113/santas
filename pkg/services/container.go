@@ -24,6 +24,7 @@ type (
 		DB           *sql.DB
 		ORM          *ent.Client
 		Repositories *Repositories
+		SSE          *SSEClient
 	}
 
 	Repositories struct {
@@ -40,6 +41,7 @@ func NewContainer() *Container {
 	c.initDb()
 	c.initORM()
 	c.initRepos()
+	c.initSSE()
 
 	return c
 }
@@ -102,4 +104,9 @@ func (c *Container) initRepos() {
 	c.Repositories = new(Repositories)
 	c.Repositories.Group = NewGroupRepo(c.ORM)
 	c.Repositories.Exclusion = NewExclusionRepo(c.ORM)
+}
+
+func (c *Container) initSSE() {
+
+	c.SSE = NewSSEClient(c.Config)
 }
