@@ -7,11 +7,14 @@ import (
 
 // A Handler handle http routes
 type Handler interface {
+
 	// Routes register routes to the router
 	Routes(g *echo.Group)
 
 	// Init is called once when the router bootstrap
 	Init(*services.Container) error
+
+	IsApi() bool
 }
 
 var handlers []Handler

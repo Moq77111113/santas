@@ -75,6 +75,7 @@ func (c *Container) initWeb() {
 	c.Web = echo.New()
 	c.Web.Validator = c.Validator
 	c.Web.HideBanner = true
+	c.Web.HidePort = true
 }
 
 func (c *Container) initDb() {

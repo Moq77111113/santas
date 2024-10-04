@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/labstack/gommon/color"
 	"github.com/moq77111113/chmoly-santas/pkg/handlers"
 	"github.com/moq77111113/chmoly-santas/pkg/services"
 	"github.com/spf13/cobra"
@@ -49,6 +50,9 @@ func serve(cmd *cobra.Command, args []string) error {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  15 * time.Second,
 	}
+
+	color.Println(color.Green(fmt.Sprintf("%s is running on http://%s:%d", c.Config.App.Name, c.Config.Http.Hostname, c.Config.Http.Port), color.B, color.WhtBg))
+
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 

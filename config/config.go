@@ -10,6 +10,7 @@ type (
 	Config struct {
 		Http     HTTP
 		Database Database
+		App      App
 	}
 
 	HTTP struct {
@@ -17,6 +18,10 @@ type (
 		Port     uint16
 	}
 
+	App struct {
+		Name       string
+		ShowBanner bool
+	}
 	Database struct {
 		Driver     string
 		Connection string

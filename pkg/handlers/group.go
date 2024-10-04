@@ -55,6 +55,10 @@ func (h *Group) Routes(g *echo.Group) {
 	groups.POST("/:id/member/:memberId/exclusion", h.AddExclusion, checkParamMw("id"), checkParamMw("memberId"))
 }
 
+func (h *Group) IsApi() bool {
+	return true
+}
+
 func checkParamMw(path string, types ...string) echo.MiddlewareFunc {
 	paramType := "int"
 	if len(types) > 0 {
@@ -192,6 +196,7 @@ func (h *Group) AddExclusion(ctx echo.Context) error {
 	return ctx.NoContent(http.StatusCreated)
 }
 
+// Returns a group exclusions
 func (h *Group) GetExclusions(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
 
