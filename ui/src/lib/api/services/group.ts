@@ -18,7 +18,7 @@ class GroupService {
 	}
 
 	async exlusions(id: number): Promise<GroupExclusion[]> {
-		return this.client.request(`${base}/${id}/exclusions`);
+		return this.client.request(`${base}/${id}/exclusion`);
 	}
 
 	async create(name: string): Promise<Group> {
@@ -48,15 +48,15 @@ class GroupService {
 		});
 	}
 
-	subscribe(id: number, callback: (group: Group) => void): () => void {
+	subscribe(id: number, callback: (exclusions: GroupExclusion[]) => void): () => void {
 		if (typeof window === 'undefined') {
 			throw new Error('EventSource is not supported');
 		}
 		const eventSource = new EventSource(`${base}/${id}/events`);
 		eventSource.onmessage = (event) => {
 			try {
-				const group = JSON.parse(event.data);
-				callback(group);
+				const exclusions = JSON.parse(event.data);
+				callback(exclusions);
 			} catch (e) {
 				// TODO: handle error
 				console.error(e);

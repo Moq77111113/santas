@@ -59,7 +59,7 @@ func (h *Group) Routes(g *echo.Group) {
 	groups.POST("/:id/member", h.AddMember, checkParamMw("id"))
 	groups.GET("/:id/events", h.RegisterChannel, checkParamMw("id"))
 	groups.GET("/:id/member", h.GetMembers, checkParamMw("id"))
-	groups.GET("/:id/exclusion", h.GetExclusions, checkParamMw("id"))
+	groups.GET("/:id/exclusion", h.MembersWithExclusions, checkParamMw("id"))
 	groups.POST("/:id/member/:memberId/exclusion", h.AddExclusion, checkParamMw("id"), checkParamMw("memberId"))
 }
 
@@ -158,8 +158,23 @@ func (h *Group) AddMember(ctx echo.Context) error {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
-	h.broadcastExclusions(ctx, id)
+	h.broadcast(ctx, id)
 	return ctx.JSON(http.StatusCreated, gr)
+}
+
+// Removes a member from a group
+func (h *Group) RemoveMember(ctx echo.Context) error {
+	id := ctx.Get("id").(int)
+	memberId := ctx.Get("memberId").(int)
+
+	_, err := h.GroupRepo.RemoveMember(ctx.Request().Context(), id, memberId)
+	if err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
+	}
+
+	h.broadcast(ctx, id)
+	return ctx.NoContent(http.StatusNoContent)
 }
 
 // Adds an exclusion to a member in a group
@@ -201,15 +216,15 @@ func (h *Group) AddExclusion(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add exclusion")
 	}
 
-	h.broadcastExclusions(ctx, id)
+	h.broadcast(ctx, id)
 	return ctx.NoContent(http.StatusCreated)
 }
 
 // Returns a group exclusions
-func (h *Group) GetExclusions(ctx echo.Context) error {
+func (h *Group) MembersWithExclusions(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
 
-	exc, err := h.ExclusionRepo.GetExclusions(ctx.Request().Context(), id)
+	exc, err := h.ExclusionRepo.MembersWithExclusions(ctx.Request().Context(), id)
 
 	if err != nil {
 		ctx.Logger().Error(err)
@@ -238,8 +253,9 @@ func (h *Group) BroadcastGroup(id int, message string) {
 	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), message)
 }
 
-func (h *Group) broadcastExclusions(ctx echo.Context, id int) error {
-	exc, err := h.ExclusionRepo.GetExclusions(ctx.Request().Context(), id)
+func (h *Group) broadcast(ctx echo.Context, id int) error {
+
+	exc, err := h.ExclusionRepo.MembersWithExclusions(ctx.Request().Context(), id)
 
 	if err != nil {
 		return err
@@ -250,6 +266,7 @@ func (h *Group) broadcastExclusions(ctx echo.Context, id int) error {
 	if err != nil {
 		return err
 	}
-	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), string(jsonData))
+
+	h.BroadcastGroup(id, string(jsonData))
 	return nil
 }

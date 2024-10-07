@@ -1,10 +1,20 @@
-<script>
+<script lang="ts">
 	import api from '$lib/api';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount, setContext } from 'svelte';
 	import '../app.css';
+	import { createMemberState } from '@/lib/stores/members.svelte';
 
-	const unsub = api.groups.subscribe(1, (groups) => {
-		console.log(groups);
+	const members = createMemberState([]);
+
+	onMount(async () => {
+		members.exclusions = await api.groups.exlusions(1);
+	});
+
+	setContext('members', members);
+	const { children } = $props();
+
+	const unsub = api.groups.subscribe(1, (exc) => {
+		members.exclusions = exc;
 	});
 
 	onDestroy(() => {
@@ -14,6 +24,6 @@
 
 <div class="app">
 	<main>
-		<slot />
+		{@render children()}
 	</main>
 </div>

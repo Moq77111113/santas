@@ -5,6 +5,7 @@ import (
 
 	"github.com/moq77111113/chmoly-santas/ent"
 	"github.com/moq77111113/chmoly-santas/ent/exclusion"
+	"github.com/moq77111113/chmoly-santas/ent/group"
 )
 
 type (
@@ -37,7 +38,16 @@ func (s *ExclusionRepo) AddExclusion(ctx context.Context, payload AddExclusion) 
 		Save(ctx)
 }
 
-func (s *ExclusionRepo) GetExclusions(ctx context.Context, groupId int) ([]*GroupExclusions, error) {
+func (s *ExclusionRepo) MembersWithExclusions(ctx context.Context, groupId int) ([]*GroupExclusions, error) {
+	mms, err := s.orm.Group.Query().Where(group.IDEQ(groupId)).QueryMembers().All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(mms) == 0 {
+		return nil, nil
+	}
+
 	exc, err := s.orm.Exclusion.
 		Query().
 		Where(exclusion.GroupIDEQ(groupId)).
@@ -49,31 +59,24 @@ func (s *ExclusionRepo) GetExclusions(ctx context.Context, groupId int) ([]*Grou
 		return nil, err
 	}
 
-	return toGroupExclusions(exc), nil
+	mmsWithExclusions := make([]*GroupExclusions, 0, len(mms))
+	for _, mm := range mms {
+		excludedMembers := make([]*ent.Member, 0, len(exc))
+		for _, e := range exc {
+			if e.MemberID == mm.ID {
+				excludedMembers = append(excludedMembers, e.Edges.Exclude)
+			}
+		}
+		mmsWithExclusions = append(mmsWithExclusions, &GroupExclusions{
+			Member:          mm,
+			ExcludedMembers: excludedMembers,
+		})
+	}
+
+	return mmsWithExclusions, nil
 
 }
 
 func (s *ExclusionRepo) RemoveExclusion(ctx context.Context, id int) error {
 	return s.orm.Exclusion.DeleteOneID(id).Exec(ctx)
-}
-
-func toGroupExclusions(mms []*ent.Exclusion) []*GroupExclusions {
-	members := make(map[int]*ent.Member)
-	excludedMembers := make([]*ent.Member, 0, len(mms))
-	for _, mm := range mms {
-		if _, ok := members[mm.MemberID]; !ok {
-			members[mm.MemberID] = mm.Edges.Member
-		}
-		excludedMembers = append(excludedMembers, mm.Edges.Exclude)
-	}
-
-	res := make([]*GroupExclusions, 0, len(members))
-	for _, member := range members {
-		res = append(res, &GroupExclusions{
-			Member:          member,
-			ExcludedMembers: excludedMembers,
-		})
-	}
-
-	return res
 }
