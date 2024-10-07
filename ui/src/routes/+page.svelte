@@ -48,7 +48,7 @@
 			<h2 class="text-lg font-semibold mb-3">Add Participants</h2>
 			<div class="flex space-x-2">
 				<Input type="text" placeholder="Enter participant name" class="flex-grow" />
-				<Button >Add</Button>
+				<Button>Add</Button>
 			</div>
 		</div>
 

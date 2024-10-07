@@ -19,8 +19,9 @@ type (
 	}
 
 	App struct {
-		Name       string
-		ShowBanner bool
+		Name          string
+		ShowBanner    bool
+		EncryptionKey string
 	}
 	Database struct {
 		Driver     string

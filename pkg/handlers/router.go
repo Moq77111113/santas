@@ -5,17 +5,18 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echoMw "github.com/labstack/echo/v4/middleware"
 
+	"github.com/moq77111113/chmoly-santas/pkg/middleware"
 	"github.com/moq77111113/chmoly-santas/pkg/services"
 )
 
 // Setup the router with registered handlers
 func Bootstrap(c *services.Container) error {
 
-	c.Web.Use(middleware.Logger())
-	c.Web.Use(middleware.Recover())
-	c.Web.Pre(middleware.RemoveTrailingSlashWithConfig(middleware.TrailingSlashConfig{
+	// c.Web.Use(echoMw.Logger())
+	c.Web.Use(echoMw.Recover())
+	c.Web.Pre(echoMw.RemoveTrailingSlashWithConfig(echoMw.TrailingSlashConfig{
 		Skipper: func(c echo.Context) bool {
 			return !strings.HasPrefix(c.Request().URL.Path, "/api")
 		},
@@ -24,11 +25,13 @@ func Bootstrap(c *services.Container) error {
 	g := c.Web.Group("")
 
 	g.Use(
-		middleware.Recover(),
-		middleware.Secure(),
-		middleware.RequestID(),
-		middleware.Gzip(),
-		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		echoMw.Recover(),
+		echoMw.Secure(),
+		echoMw.RequestID(),
+		echoMw.Gzip(),
+		middleware.Session(middleware.CookieStore(c.Config.App.EncryptionKey)),
+		middleware.LoadUser(c.Auth),
+		echoMw.TimeoutWithConfig(echoMw.TimeoutConfig{
 			Timeout: (time.Second * 10),
 			Skipper: func(c echo.Context) bool {
 				return strings.Contains(c.Request().URL.Path, "events")

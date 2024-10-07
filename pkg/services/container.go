@@ -25,6 +25,7 @@ type (
 		ORM          *ent.Client
 		Repositories *Repositories
 		SSE          *SSEClient
+		Auth         *AuthClient
 	}
 
 	Repositories struct {
@@ -42,6 +43,7 @@ func NewContainer() *Container {
 	c.initORM()
 	c.initRepos()
 	c.initSSE()
+	c.InitAuth()
 
 	return c
 }
@@ -109,4 +111,8 @@ func (c *Container) initRepos() {
 func (c *Container) initSSE() {
 
 	c.SSE = NewSSEClient(c.Config)
+}
+
+func (c *Container) InitAuth() {
+	c.Auth = NewAuthClient(c.Config, c.ORM)
 }

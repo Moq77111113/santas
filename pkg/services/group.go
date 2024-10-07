@@ -45,7 +45,7 @@ func (s *GroupRepo) Remove(ctx context.Context, name string) error {
 	return err
 }
 
-func (s *GroupRepo) AddMember(ctx context.Context, id int, memberName string) (*ent.Group, error) {
+func (s *GroupRepo) AddMember(ctx context.Context, id int, memberName string) (*ent.Member, error) {
 
 	gr, err := s.orm.Group.Get(ctx, id)
 	if err != nil {
@@ -61,12 +61,12 @@ func (s *GroupRepo) AddMember(ctx context.Context, id int, memberName string) (*
 		}
 	}
 
-	gr, err = gr.Update().AddMembers(mm).Save(ctx)
+	_, err = gr.Update().AddMembers(mm).Save(ctx)
 
-	return gr, err
+	return mm, err
 }
 
-func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Group, error) {
+func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Member, error) {
 
 	mm, err := s.orm.Group.Query().Where(group.IDEQ(id)).WithMembers().QueryMembers().Where(member.IDEQ(memberId)).Only(ctx)
 
@@ -74,11 +74,11 @@ func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Gr
 		return nil, err
 	}
 
-	_, err = mm.Update().RemoveGroupIDs(id).Save(ctx)
+	mm, err = mm.Update().RemoveGroupIDs(id).Save(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return s.orm.Group.Get(ctx, id)
+	return mm, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/moq77111113/chmoly-santas/pkg/form"
+	"github.com/moq77111113/chmoly-santas/pkg/middleware"
 	"github.com/moq77111113/chmoly-santas/pkg/services"
 )
 
@@ -17,10 +18,17 @@ type (
 		GroupRepo     *services.GroupRepo
 		ExclusionRepo *services.ExclusionRepo
 		SSE           *services.SSEClient
+		Auth          *services.AuthClient
 	}
 
 	createGroupForm struct {
 		Name string `form:"name" validate:"required"`
+		form.Form
+	}
+
+	registerForm struct {
+		GroupID int    `form:"groupId" validate:"required"`
+		Name    string `form:"name" validate:"required"`
 		form.Form
 	}
 
@@ -47,6 +55,7 @@ func (h *Group) Init(c *services.Container) error {
 	h.GroupRepo = c.Repositories.Group
 	h.ExclusionRepo = c.Repositories.Exclusion
 	h.SSE = c.SSE
+	h.Auth = c.Auth
 	return nil
 }
 
@@ -55,12 +64,24 @@ func (h *Group) Routes(g *echo.Group) {
 	groups := g.Group("/group")
 
 	groups.POST("", h.CreateGroup)
-	groups.GET("/:id", h.GetGroup, checkParamMw("id"))
-	groups.POST("/:id/member", h.AddMember, checkParamMw("id"))
-	groups.GET("/:id/events", h.RegisterChannel, checkParamMw("id"))
-	groups.GET("/:id/member", h.GetMembers, checkParamMw("id"))
-	groups.GET("/:id/exclusion", h.MembersWithExclusions, checkParamMw("id"))
-	groups.POST("/:id/member/:memberId/exclusion", h.AddExclusion, checkParamMw("id"), checkParamMw("memberId"))
+	groups.POST("/register", h.Register)
+	// 	,
+	// 	 middleware.WithoutAuthentication(func(c echo.Context) string {
+	// 		return ("/group")
+	// 	})
+	// )
+
+	withId := groups.Group("/:id", checkParamMw("id"),
+		// Grab id from path & send to middleware.WithAuthentication
+		middleware.WithAuthentication(func(c echo.Context) string {
+			return fmt.Sprintf("/register?groupId=%s", c.Param("id"))
+		}))
+	withId.GET("", h.GetGroup)
+	withId.POST("/member", h.AddMember)
+	withId.GET("/events", h.RegisterChannel)
+	withId.GET("/member", h.GetMembers)
+	withId.GET("/exclusion", h.MembersWithExclusions)
+	withId.POST("/member/:memberId/exclusion", h.AddExclusion, checkParamMw("memberId"))
 }
 
 func (h *Group) IsApi() bool {
@@ -109,6 +130,31 @@ func (h *Group) GetGroup(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, gr)
 }
 
+// Register a member and set the authenticated user
+func (h *Group) Register(ctx echo.Context) error {
+	var form registerForm
+
+	if err := form.BindAndValidate(ctx, &form); err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusBadRequest, form.Errors())
+	}
+
+	mm, err := h.GroupRepo.AddMember(ctx.Request().Context(), form.GroupID, form.Name)
+
+	if err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
+	}
+
+	err = h.Auth.SetAuthenticatedUser(ctx, mm)
+	if err != nil {
+
+		return echo.NewHTTPError(http.StatusInternalServerError, "unable to register")
+	}
+
+	return ctx.Redirect(http.StatusFound, "/foobar")
+}
+
 // Returns a group members
 func (h *Group) GetMembers(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
@@ -152,14 +198,14 @@ func (h *Group) AddMember(ctx echo.Context) error {
 
 	id := ctx.Get("id").(int)
 
-	gr, err := h.GroupRepo.AddMember(ctx.Request().Context(), id, form.MemberName)
+	mm, err := h.GroupRepo.AddMember(ctx.Request().Context(), id, form.MemberName)
 
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
 	h.broadcast(ctx, id)
-	return ctx.JSON(http.StatusCreated, gr)
+	return ctx.JSON(http.StatusCreated, mm)
 }
 
 // Removes a member from a group
@@ -244,7 +290,6 @@ func (h *Group) RegisterChannel(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "group not found")
 	}
 
-	fmt.Printf("Registering %s in %s", ctx.RealIP(), fmt.Sprintf("%s:%d", channelBase, id))
 	h.SSE.AddClient(ctx, fmt.Sprintf("%s:%d", channelBase, id))
 	return nil
 }

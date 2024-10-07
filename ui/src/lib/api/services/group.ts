@@ -30,6 +30,16 @@ class GroupService {
 		});
 	}
 
+	async register(groupId: number, name: string): Promise<Member> {
+		const formData = new FormData();
+		formData.append('name', name);
+		formData.append('groupId', groupId.toString());
+		return this.client.request(`${base}/register`, {
+			method: 'POST',
+			body: formData
+		});
+	}
+
 	async addMember(groupId: number, name: string): Promise<void> {
 		const formData = new FormData();
 		formData.append('name', name);

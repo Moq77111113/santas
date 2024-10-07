@@ -10,7 +10,7 @@
 		const data = new FormData(form);
 
 		const name = data.get('name') as string;
-		await api.groups.addMember(1, name);
+		await api.groups.register(1, name);
 	};
 </script>
 
