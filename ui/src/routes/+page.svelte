@@ -8,6 +8,12 @@
 	import { type GroupExclusion } from '@/lib/api/dto';
 
 	import { type MemberState } from '@/lib/stores/members.svelte';
+	import {
+		Accordion,
+		AccordionContent,
+		AccordionItem,
+		AccordionTrigger
+	} from '$lib/components/ui/accordion';
 	import { getContext } from 'svelte';
 
 	const members = getContext<MemberState>('members');
@@ -42,22 +48,30 @@
 			<h2 class="text-lg font-semibold mb-3">Add Participants</h2>
 			<div class="flex space-x-2">
 				<Input type="text" placeholder="Enter participant name" class="flex-grow" />
-				<Button>Add</Button>
+				<Button >Add</Button>
 			</div>
 		</div>
 
 		<article class="p-4 rounded-lg shadow-md">
 			<h2 class="text-lg font-semibold mb-3">Participants & Exclusions</h2>
 			<ScrollArea class="h-[300px] w-full rounded-md border p-4">
-				{#each members.exclusions as membersWithExclusions, index}
-					<div class="flex justify-between items-center mb-2">
-						<span class="font-semibold">{membersWithExclusions.member.name}</span>
-						<Button variant="destructive" size="sm">Remove</Button>
-					</div>
-					<div class="pl-4">
-						{@render exclusions(membersWithExclusions)}
-					</div>
-				{/each}
+				<Accordion multiple class="w-full">
+					{#each members.exclusions as membersWithExclusions}
+						<AccordionItem value={`${membersWithExclusions.member.id}`}>
+							<AccordionTrigger class="text-left w-full"
+								><div class="flex justify-between items-center w-full">
+									<span>{membersWithExclusions.member.name}</span>
+									<Button variant="destructive" size="sm">Remove</Button>
+								</div>
+							</AccordionTrigger>
+							<AccordionContent
+								><div class="pl-4 mt-2">
+									{@render exclusions(membersWithExclusions)}
+								</div>
+							</AccordionContent>
+						</AccordionItem>
+					{/each}
+				</Accordion>
 			</ScrollArea>
 			<!-- {error && <div class="text-red-500">{error}</div>} -->
 			<Button class="w-full" disabled>Generate Assignments</Button>
