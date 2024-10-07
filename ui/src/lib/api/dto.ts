@@ -13,4 +13,4 @@ type GroupExclusion = {
 	excludedMembers: Member[];
 };
 
-export { Group, Member, GroupExclusion };
+export type { Group, Member, GroupExclusion };

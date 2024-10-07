@@ -54,11 +54,14 @@ class GroupService {
 		}
 		const eventSource = new EventSource(`${base}/${id}/events`);
 		eventSource.onmessage = (event) => {
-			console.log(event);
-			// const group = JSON.parse(event.data);
-			callback({ id: 1, name: 'test' });
+			try {
+				const group = JSON.parse(event.data);
+				callback(group);
+			} catch (e) {
+				// TODO: handle error
+				console.error(e);
+			}
 		};
-
 		return () => {
 			eventSource.close();
 		};

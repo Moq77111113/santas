@@ -21,8 +21,8 @@ serve-only:
 
 .PHONY: ui-install
 ui-install:
-	cd ui && npm install && cd ..
+	cd ui && pnpm install && cd ..
 
 .PHONY: ui-build
 ui-build:
-	cd ui && npm run build && cd ..
+	cd ui && pnpm run build && cd ..

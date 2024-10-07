@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -157,7 +158,7 @@ func (h *Group) AddMember(ctx echo.Context) error {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
-	h.BroadcastGroup(id, fmt.Sprintf("New member added: %s", form.MemberName))
+	h.broadcastExclusions(ctx, id)
 	return ctx.JSON(http.StatusCreated, gr)
 }
 
@@ -200,6 +201,7 @@ func (h *Group) AddExclusion(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add exclusion")
 	}
 
+	h.broadcastExclusions(ctx, id)
 	return ctx.NoContent(http.StatusCreated)
 }
 
@@ -234,4 +236,20 @@ func (h *Group) RegisterChannel(ctx echo.Context) error {
 
 func (h *Group) BroadcastGroup(id int, message string) {
 	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), message)
+}
+
+func (h *Group) broadcastExclusions(ctx echo.Context, id int) error {
+	exc, err := h.ExclusionRepo.GetExclusions(ctx.Request().Context(), id)
+
+	if err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(exc)
+
+	if err != nil {
+		return err
+	}
+	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), string(jsonData))
+	return nil
 }
