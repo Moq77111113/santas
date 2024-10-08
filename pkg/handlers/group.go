@@ -63,18 +63,13 @@ func (h *Group) Routes(g *echo.Group) {
 
 	groups := g.Group("/group")
 
+	groups.GET("", h.List)
 	groups.POST("", h.CreateGroup)
-	groups.POST("/register", h.Register)
-	// 	,
-	// 	 middleware.WithoutAuthentication(func(c echo.Context) string {
-	// 		return ("/group")
-	// 	})
-	// )
 
 	withId := groups.Group("/:id", checkParamMw("id"),
 		// Grab id from path & send to middleware.WithAuthentication
-		middleware.WithAuthentication(func(c echo.Context) string {
-			return fmt.Sprintf("/register?groupId=%s", c.Param("id"))
+		middleware.WithAuthentication(func(c echo.Context) error {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
 		}))
 	withId.GET("", h.GetGroup)
 	withId.POST("/member", h.AddMember)
@@ -116,6 +111,16 @@ func checkParamMw(path string, types ...string) echo.MiddlewareFunc {
 	}
 }
 
+func (h *Group) List(ctx echo.Context) error {
+	grp, err := h.GroupRepo.List(ctx.Request().Context())
+	if err != nil {
+		ctx.Logger().Error(err)
+		return ctx.JSON(http.StatusOK, []string{})
+	}
+
+	return ctx.JSON(http.StatusOK, grp)
+}
+
 // Returns a group
 func (h *Group) GetGroup(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
@@ -128,31 +133,6 @@ func (h *Group) GetGroup(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, gr)
-}
-
-// Register a member and set the authenticated user
-func (h *Group) Register(ctx echo.Context) error {
-	var form registerForm
-
-	if err := form.BindAndValidate(ctx, &form); err != nil {
-		ctx.Logger().Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, form.Errors())
-	}
-
-	mm, err := h.GroupRepo.AddMember(ctx.Request().Context(), form.GroupID, form.Name)
-
-	if err != nil {
-		ctx.Logger().Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
-	}
-
-	err = h.Auth.SetAuthenticatedUser(ctx, mm)
-	if err != nil {
-
-		return echo.NewHTTPError(http.StatusInternalServerError, "unable to register")
-	}
-
-	return ctx.Redirect(http.StatusFound, "/foobar")
 }
 
 // Returns a group members

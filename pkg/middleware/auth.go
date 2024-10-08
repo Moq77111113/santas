@@ -25,27 +25,25 @@ func LoadUser(auth *services.AuthClient) echo.MiddlewareFunc {
 }
 
 func WithAuthentication(
-	redirectURLFunc func(c echo.Context) string,
+	onError func(c echo.Context) error,
 ) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			u := c.Get(AuthSessionKey)
 			if u == nil {
-				redirectTo := redirectURLFunc(c)
-				return c.Redirect(302, redirectTo)
+				return onError(c)
 			}
 			return next(c)
 		}
 	}
 }
 
-func WithoutAuthentication(redirectURLFunc func(c echo.Context) string) echo.MiddlewareFunc {
+func WithoutAuthentication(onError func(c echo.Context) error) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			u := c.Get(AuthSessionKey)
 			if u != nil {
-				redirectTo := redirectURLFunc(c)
-				return c.Redirect(302, redirectTo)
+				return onError(c)
 			}
 			return next(c)
 		}

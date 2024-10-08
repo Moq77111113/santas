@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/moq77111113/chmoly-santas/config"
@@ -61,11 +62,22 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case msg := <-mChan:
 			event := Event{
 				Data: []byte(msg),
+			}
+			if err := event.SendTo(w); err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-ticker.C:
+			event := Event{
+				Comment: []byte("keep-alive"),
 			}
 			if err := event.SendTo(w); err != nil {
 				return

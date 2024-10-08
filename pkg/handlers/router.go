@@ -30,7 +30,6 @@ func Bootstrap(c *services.Container) error {
 		echoMw.RequestID(),
 		echoMw.Gzip(),
 		middleware.Session(middleware.CookieStore(c.Config.App.EncryptionKey)),
-		middleware.LoadUser(c.Auth),
 		echoMw.TimeoutWithConfig(echoMw.TimeoutConfig{
 			Timeout: (time.Second * 10),
 			Skipper: func(c echo.Context) bool {
@@ -40,6 +39,9 @@ func Bootstrap(c *services.Container) error {
 	)
 
 	a := g.Group("/api")
+	a.Use(
+		middleware.LoadUser(c.Auth),
+	)
 
 	for _, h := range GetHandlers() {
 		if err := h.Init(c); err != nil {

@@ -9,6 +9,10 @@ class GroupService {
 		this.client = client;
 	}
 
+	async list(): Promise<Group[]> {
+		return this.client.request(base);
+	}
+
 	async group(id: number): Promise<Group> {
 		return this.client.request(`${base}/${id}`);
 	}
@@ -25,16 +29,6 @@ class GroupService {
 		const formData = new FormData();
 		formData.append('name', name);
 		return this.client.request(base, {
-			method: 'POST',
-			body: formData
-		});
-	}
-
-	async register(groupId: number, name: string): Promise<Member> {
-		const formData = new FormData();
-		formData.append('name', name);
-		formData.append('groupId', groupId.toString());
-		return this.client.request(`${base}/register`, {
 			method: 'POST',
 			body: formData
 		});

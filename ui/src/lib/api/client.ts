@@ -1,11 +1,12 @@
 import type { RequestOptions } from './options';
+import AuthService from './services/auth';
 import GroupService from './services/group';
 
 export class Client {
 	baseUrl: string;
 
 	readonly groups: GroupService;
-
+	readonly auth: AuthService;
 	private cancelControllers = new Map<string, AbortController>();
 	private allowAutomaticCancellation = true;
 
@@ -13,6 +14,7 @@ export class Client {
 		this.baseUrl = baseUrl;
 
 		this.groups = new GroupService(this);
+		this.auth = new AuthService(this);
 	}
 
 	async request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -21,6 +23,9 @@ export class Client {
 		const fetchImplementation = options.fetch || fetch;
 
 		const response = await fetchImplementation(url, this.serializeRequestOptions(path, options));
+		// if (response.redirected) {
+		// 	window.location.href = response.url;
+		// }
 
 		let data = {};
 		try {

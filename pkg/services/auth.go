@@ -24,6 +24,7 @@ func NewAuthClient(config *config.Config, orm *ent.Client) *AuthClient {
 
 func (a *AuthClient) GetAuthenticatedUser(ctx echo.Context) (*ent.Member, error) {
 	s, err := session.Get(ctx, authSessionName)
+
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +45,7 @@ func (a *AuthClient) GetAuthenticatedUser(ctx echo.Context) (*ent.Member, error)
 func (a *AuthClient) SetAuthenticatedUser(ctx echo.Context, m *ent.Member) error {
 	s, err := session.Get(ctx, authSessionName)
 	if err != nil {
+
 		return err
 	}
 

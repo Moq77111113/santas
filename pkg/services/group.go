@@ -25,6 +25,9 @@ func (s *GroupRepo) CreateGroup(ctx context.Context, name string) (*ent.Group, e
 	return gr, err
 }
 
+func (s *GroupRepo) List(ctx context.Context) ([]*ent.Group, error) {
+	return s.orm.Group.Query().All(ctx)
+}
 func (s *GroupRepo) Get(ctx context.Context, id int) (*ent.Group, error) {
 	return s.orm.Group.Get(ctx, id)
 }
@@ -81,4 +84,8 @@ func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Me
 	}
 
 	return mm, nil
+}
+
+func (s *GroupRepo) CreateMember(ctx context.Context, name string) (*ent.Member, error) {
+	return s.orm.Member.Create().SetName(name).Save(ctx)
 }
