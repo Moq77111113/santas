@@ -110,6 +110,8 @@ func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Me
 	return mm, nil
 }
 
+
+
 func (s *GroupRepo) CreateMember(ctx context.Context, name string) (*ent.Member, error) {
 	return s.orm.Member.Create().SetName(name).Save(ctx)
 }

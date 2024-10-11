@@ -66,6 +66,7 @@ func (h *Group) Routes(g *echo.Group) {
 	withId.DELETE("/member/:memberId", h.RemoveMember, checkParamMw("memberId"))
 	withId.POST("/member/:memberId/exclusion", h.AddExclusion, checkParamMw("memberId"))
 	withId.DELETE("/member/:memberId/exclusion/:excludeId", h.RemoveExclusion, checkParamMw("memberId"), checkParamMw("excludeId"))
+	withId.GET("/santas", h.Santa)
 }
 
 func (h *Group) IsApi() bool {
@@ -251,6 +252,18 @@ func (h *Group) RemoveExclusion(ctx echo.Context) error {
 
 	h.broadcast(ctx, id)
 	return ctx.NoContent(http.StatusNoContent)
+}
+
+func (h *Group) Santa(ctx echo.Context) error {
+	id := ctx.Get("id").(int)
+
+	mms, err := h.ExclusionRepo.GenerateSanta(ctx.Request().Context(), id)
+	if err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusNotFound, "members not found")
+	}
+
+	return ctx.JSON(http.StatusOK, mms)
 }
 
 // Returns a group exclusions

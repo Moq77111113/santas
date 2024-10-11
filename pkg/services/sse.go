@@ -45,8 +45,8 @@ func NewSSEClient(config *config.Config) *SSEClient {
 
 func (s *SSEClient) AddClient(c echo.Context, channel string) {
 
-	me := c.Get("me").(*ent.Member)
-	if me == nil {
+	me, ok := c.Get("me").(*ent.Member)
+	if !ok || me == nil {
 		c.String(http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -68,7 +68,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -79,6 +79,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 				Data: []byte(msg),
 			}
 			if err := event.SendTo(w); err != nil {
+				c.Logger().Errorf("Error sending event: %v", err)
 				return
 			}
 			flusher.Flush()

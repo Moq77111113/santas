@@ -61,6 +61,10 @@ class GroupService {
 		});
 	}
 
+	async getSantas(id: number): Promise<Member[]> {
+		return this.client.request(`${base}/${id}/santas`);
+	}
+
 	subscribe(id: number, callback: (exclusions: GroupExclusion[]) => void): () => void {
 		if (typeof window === 'undefined') {
 			throw new Error('EventSource is not supported');

@@ -52,6 +52,11 @@
 		return await api.groups.removeExclusion(data.id, id, excludeId);
 	};
 
+	const s = async () => {
+		const c = await api.groups.getSantas(data.id);
+		console.log(c);
+	};
+
 	onDestroy(() => {
 		unsubsribe();
 	});
@@ -89,7 +94,7 @@
 <div class="container mx-auto p-4 md:p-6 lg:p-8">
 	<div class="mx-auto space-y-6">
 		<h1 class="text-2xl font-bold text-center mb-6">Le Noël de {data.group.name}</h1>
-
+		<Button variant="secondary" on:click={s}>Générer les pères Noël</Button>
 		{#if !groupWithExclusions.some((_) => _.member.id === data.me?.id)}
 			<Button on:click={join}>Rejoindre</Button>
 		{:else}
