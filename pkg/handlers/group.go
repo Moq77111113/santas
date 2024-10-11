@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/moq77111113/chmoly-santas/ent"
 	"github.com/moq77111113/chmoly-santas/pkg/form"
 	"github.com/moq77111113/chmoly-santas/pkg/middleware"
 	"github.com/moq77111113/chmoly-santas/pkg/services"
@@ -23,17 +24,6 @@ type (
 
 	createGroupForm struct {
 		Name string `form:"name" validate:"required"`
-		form.Form
-	}
-
-	registerForm struct {
-		GroupID int    `form:"groupId" validate:"required"`
-		Name    string `form:"name" validate:"required"`
-		form.Form
-	}
-
-	addMemberForm struct {
-		MemberName string `form:"name" validate:"required"`
 		form.Form
 	}
 
@@ -61,21 +51,21 @@ func (h *Group) Init(c *services.Container) error {
 
 func (h *Group) Routes(g *echo.Group) {
 
-	groups := g.Group("/group")
+	groups := g.Group("/group", middleware.WithAuthentication(func(c echo.Context) error {
+		return c.JSON(401, "Unauthorized")
+	}))
 
 	groups.GET("", h.List)
 	groups.POST("", h.CreateGroup)
 
-	withId := groups.Group("/:id", checkParamMw("id"),
-		// Grab id from path & send to middleware.WithAuthentication
-		middleware.WithAuthentication(func(c echo.Context) error {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
-		}))
+	withId := groups.Group("/:id", checkParamMw("id"))
 	withId.GET("", h.GetGroup)
-	withId.POST("/member", h.AddMember)
-	withId.GET("/events", h.RegisterChannel)
+	withId.POST("/join", h.Join)
+	withId.GET("/events", h.Subsribe)
 	withId.GET("/member", h.GetMembers)
+
 	withId.GET("/exclusion", h.MembersWithExclusions)
+	withId.DELETE("/member/:memberId", h.RemoveMember, checkParamMw("memberId"))
 	withId.POST("/member/:memberId/exclusion", h.AddExclusion, checkParamMw("memberId"))
 }
 
@@ -152,13 +142,18 @@ func (h *Group) GetMembers(ctx echo.Context) error {
 // Creates a group
 func (h *Group) CreateGroup(ctx echo.Context) error {
 
+	me := ctx.Get(middleware.AuthSessionKey)
+
+	if me == nil {
+		return ctx.JSON(401, "Unauthorized")
+	}
 	var form createGroupForm
 	if err := form.BindAndValidate(ctx, &form); err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, form.Errors())
 	}
 
-	gr, err := h.GroupRepo.CreateGroup(ctx.Request().Context(), form.Name)
+	gr, err := h.GroupRepo.CreateGroup(ctx.Request().Context(), me.(*ent.Member), form.Name)
 
 	if err != nil {
 		ctx.Logger().Error(err)
@@ -168,32 +163,49 @@ func (h *Group) CreateGroup(ctx echo.Context) error {
 	return ctx.JSON(http.StatusCreated, gr)
 }
 
-// Adds a member to a group
-func (h *Group) AddMember(ctx echo.Context) error {
-	var form addMemberForm
-	if err := form.BindAndValidate(ctx, &form); err != nil {
-		ctx.Logger().Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, form.Errors())
-	}
+// Join a group
+func (h *Group) Join(ctx echo.Context) error {
 
 	id := ctx.Get("id").(int)
+	me := ctx.Get(middleware.AuthSessionKey)
 
-	mm, err := h.GroupRepo.AddMember(ctx.Request().Context(), id, form.MemberName)
+	if me == nil {
+		return ctx.JSON(401, "Unauthorized")
+	}
+
+	err := h.GroupRepo.AddMember(ctx.Request().Context(), id, me.(*ent.Member).ID)
 
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
 	h.broadcast(ctx, id)
-	return ctx.JSON(http.StatusCreated, mm)
+	return ctx.JSON(http.StatusCreated, nil)
 }
 
 // Removes a member from a group
 func (h *Group) RemoveMember(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
 	memberId := ctx.Get("memberId").(int)
+	me := ctx.Get(middleware.AuthSessionKey)
 
-	_, err := h.GroupRepo.RemoveMember(ctx.Request().Context(), id, memberId)
+	if me == nil {
+		return ctx.JSON(401, "Unauthorized")
+	}
+
+	gr, err := h.GroupRepo.Get(ctx.Request().Context(), id)
+	if err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusNotFound, "group not found")
+	}
+
+	fmt.Println("ICI", gr.Owner.ID, me.(*ent.Member).ID, memberId, me.(*ent.Member).ID)
+
+	if gr.Owner.ID != me.(*ent.Member).ID && memberId != me.(*ent.Member).ID {
+		return echo.NewHTTPError(http.StatusForbidden, "You are not allowed to remove this member")
+	}
+
+	_, err = h.GroupRepo.RemoveMember(ctx.Request().Context(), id, memberId)
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
@@ -260,7 +272,7 @@ func (h *Group) MembersWithExclusions(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, exc)
 }
 
-func (h *Group) RegisterChannel(ctx echo.Context) error {
+func (h *Group) Subsribe(ctx echo.Context) error {
 
 	id := ctx.Get("id").(int)
 

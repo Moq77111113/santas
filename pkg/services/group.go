@@ -12,24 +12,56 @@ type (
 	GroupRepo struct {
 		orm *ent.Client
 	}
+
+	EnrichedWithOwner struct {
+		Name  string      `json:"name"`
+		Id    int         `json:"id"`
+		Owner *ent.Member `json:"owner"`
+	}
 )
 
 func NewGroupRepo(orm *ent.Client) *GroupRepo {
 	return &GroupRepo{orm: orm}
 }
 
-func (s *GroupRepo) CreateGroup(ctx context.Context, name string) (*ent.Group, error) {
+func (s *GroupRepo) CreateGroup(ctx context.Context, o *ent.Member, name string) (*ent.Group, error) {
 
-	gr, err := s.orm.Group.Create().SetName(name).Save(ctx)
+	gr, err := s.orm.Group.Create().SetName(name).SetOwner(o).Save(ctx)
 
 	return gr, err
 }
 
-func (s *GroupRepo) List(ctx context.Context) ([]*ent.Group, error) {
-	return s.orm.Group.Query().All(ctx)
+func (s *GroupRepo) List(ctx context.Context) ([]*EnrichedWithOwner, error) {
+	grs, err := s.orm.Group.Query().All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var enriched []*EnrichedWithOwner
+	for _, g := range grs {
+		en, err := enrichWithOwner(g)
+		if err != nil {
+			return nil, err
+		}
+
+		enriched = append(enriched, en)
+	}
+
+	return enriched, nil
+
 }
-func (s *GroupRepo) Get(ctx context.Context, id int) (*ent.Group, error) {
-	return s.orm.Group.Get(ctx, id)
+func (s *GroupRepo) Get(ctx context.Context, id int) (*EnrichedWithOwner, error) {
+	gr, err := s.orm.Group.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	en, err := enrichWithOwner(gr)
+	if err != nil {
+		return nil, err
+	}
+
+	return en, nil
 }
 
 func (s *GroupRepo) GetMembers(ctx context.Context, id int) ([]*ent.Member, error) {
@@ -48,25 +80,17 @@ func (s *GroupRepo) Remove(ctx context.Context, name string) error {
 	return err
 }
 
-func (s *GroupRepo) AddMember(ctx context.Context, id int, memberName string) (*ent.Member, error) {
+func (s *GroupRepo) AddMember(ctx context.Context, id, member int) error {
 
 	gr, err := s.orm.Group.Get(ctx, id)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	mm, err := s.orm.Member.Query().Where(member.NameEqualFold(memberName)).Only(ctx)
+	_, err = gr.Update().AddMemberIDs(member).Save(ctx)
 
-	if err != nil {
-		mm, err = s.orm.Member.Create().SetName(memberName).Save(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
+	return err
 
-	_, err = gr.Update().AddMembers(mm).Save(ctx)
-
-	return mm, err
 }
 
 func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Member, error) {
@@ -88,4 +112,17 @@ func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Me
 
 func (s *GroupRepo) CreateMember(ctx context.Context, name string) (*ent.Member, error) {
 	return s.orm.Member.Create().SetName(name).Save(ctx)
+}
+
+func enrichWithOwner(g *ent.Group) (*EnrichedWithOwner, error) {
+	owner, err := g.QueryOwner().Only(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return &EnrichedWithOwner{
+		Name:  g.Name,
+		Id:    g.ID,
+		Owner: owner,
+	}, nil
 }

@@ -13,6 +13,11 @@ const config: Config = {
 				'2xl': '1400px'
 			}
 		},
+		fontFamily: {
+			display: ['var(--font-display)', ...fontFamily.sans],
+			body: ['var(--font-body)', ...fontFamily.sans]
+		},
+
 		extend: {
 			colors: {
 				border: 'hsl(var(--border) / <alpha-value>)',

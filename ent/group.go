@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/moq77111113/chmoly-santas/ent/group"
+	"github.com/moq77111113/chmoly-santas/ent/member"
 )
 
 // Group is the model entity for the Group schema.
@@ -21,6 +22,7 @@ type Group struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupQuery when eager-loading is set.
 	Edges        GroupEdges `json:"edges"`
+	group_owner  *int
 	selectValues sql.SelectValues
 }
 
@@ -28,9 +30,11 @@ type Group struct {
 type GroupEdges struct {
 	// Members holds the value of the members edge.
 	Members []*Member `json:"members,omitempty"`
+	// Owner holds the value of the owner edge.
+	Owner *Member `json:"owner,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // MembersOrErr returns the Members value or an error if the edge
@@ -42,6 +46,17 @@ func (e GroupEdges) MembersOrErr() ([]*Member, error) {
 	return nil, &NotLoadedError{edge: "members"}
 }
 
+// OwnerOrErr returns the Owner value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e GroupEdges) OwnerOrErr() (*Member, error) {
+	if e.Owner != nil {
+		return e.Owner, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: member.Label}
+	}
+	return nil, &NotLoadedError{edge: "owner"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Group) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -51,6 +66,8 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case group.FieldName:
 			values[i] = new(sql.NullString)
+		case group.ForeignKeys[0]: // group_owner
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -78,6 +95,13 @@ func (gr *Group) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				gr.Name = value.String
 			}
+		case group.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field group_owner", value)
+			} else if value.Valid {
+				gr.group_owner = new(int)
+				*gr.group_owner = int(value.Int64)
+			}
 		default:
 			gr.selectValues.Set(columns[i], values[i])
 		}
@@ -94,6 +118,11 @@ func (gr *Group) Value(name string) (ent.Value, error) {
 // QueryMembers queries the "members" edge of the Group entity.
 func (gr *Group) QueryMembers() *MemberQuery {
 	return NewGroupClient(gr.config).QueryMembers(gr)
+}
+
+// QueryOwner queries the "owner" edge of the Group entity.
+func (gr *Group) QueryOwner() *MemberQuery {
+	return NewGroupClient(gr.config).QueryOwner(gr)
 }
 
 // Update returns a builder for updating this Group.

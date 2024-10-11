@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/labstack/echo/v4"
 	"github.com/moq77111113/chmoly-santas/config"
 	"github.com/moq77111113/chmoly-santas/ent"
@@ -22,24 +24,22 @@ func NewAuthClient(config *config.Config, orm *ent.Client) *AuthClient {
 	return &AuthClient{config: config, orm: orm}
 }
 
-func (a *AuthClient) GetAuthenticatedUser(ctx echo.Context) (*ent.Member, error) {
+func (a *AuthClient) GetAuthenticatedUserId(ctx echo.Context) (int, error) {
 	s, err := session.Get(ctx, authSessionName)
-
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
 
 	if s.Values[authSessionKey] == nil {
-		return nil, err
+		return -1, fmt.Errorf("no authenticated user")
 	}
-
-	m, err := a.orm.Member.Get(ctx.Request().Context(), s.Values[authSessionKey].(int))
-
-	if err != nil {
-		return nil, err
+	return s.Values[authSessionKey].(int), nil
+}
+func (a *AuthClient) GetAuthenticatedUser(ctx echo.Context) (*ent.Member, error) {
+	if uid, err := a.GetAuthenticatedUserId(ctx); err == nil {
+		return a.orm.Member.Get(ctx.Request().Context(), uid)
 	}
-
-	return m, nil
+	return nil, fmt.Errorf("no authenticated user")
 }
 
 func (a *AuthClient) SetAuthenticatedUser(ctx echo.Context, m *ent.Member) error {

@@ -16,6 +16,7 @@
 
 	import api from '@/lib/api/client';
 	import { onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	type Props = {
 		data: PageData;
@@ -27,6 +28,21 @@
 		groupWithExclusions = exc;
 	});
 
+	const isOwner = $derived(data.group.owner.id === data.me?.id);
+	const join = async () => {
+		await api.groups.join(data.id);
+	};
+
+	const remove = async (id: number) => {
+		await api.groups.removeMember(data.id, id);
+	};
+
+	const leave = async () => {
+		if (!data.me) return;
+		await api.groups.removeMember(data.id, data.me.id);
+		goto('/');
+	};
+
 	onDestroy(() => {
 		unsubsribe();
 	});
@@ -34,7 +50,7 @@
 
 <svelte:head>
 	<title>Le Noel des Chmoly</title>
-	<meta name="description" content="Le Noel des Chmoly" />
+	<meta name="description" content={`Le noel de ${data.group.name}`} />
 </svelte:head>
 
 {#snippet exclusions({ member, excludedMembers }: GroupExclusion)}
@@ -43,7 +59,7 @@
 		{#each groupWithExclusions
 			.filter((m) => m.member.name !== member.name)
 			.sort((a, b) => a.member.name.localeCompare(b.member.name)) as { member: otherMember }}
-			<div class="flex items-center space-x-2 mb-1">
+			<div class="flex items-center space-x-2 space-y-2  p-1">
 				<Checkbox
 					id={`${member.id}-${otherMember.id}`}
 					checked={excludedMembers.some((_) => _.id === otherMember.id)}
@@ -54,33 +70,49 @@
 	</ScrollArea>
 {/snippet}
 
-<div class="p-4 md:p-6 lg:p-8">
+<div class="container mx-auto p-4 md:p-6 lg:p-8">
 	<div class="mx-auto space-y-6">
-		<h1 class="text-2xl font-bold text-center mb-6">Secret Santa Generator</h1>
+		<h1 class="text-2xl font-bold text-center mb-6">Le Noël de {data.group.name}</h1>
 
-		<article class="p-4 rounded-lg shadow-md flex flex-col space-y-4">
+		{#if !groupWithExclusions.some((_) => _.member.id === data.me?.id)}
+			<Button on:click={join}>Rejoindre</Button>
+		{:else}
+			<Button variant="destructive" on:click={leave}>Quitter</Button>
+		{/if}
+
+		<article class=" rounded-lg shadow-md flex flex-col space-y-4">
 			<h2 class="text-lg font-semibold mb-3">Participants & Exclusions</h2>
 			<ScrollArea class="h-[300px] md:h-[600px] w-full rounded-md border p-4">
 				<Accordion multiple class="w-full">
 					{#each groupWithExclusions as member}
 						<AccordionItem value={`${member.member.id}`}>
-							<AccordionTrigger class="text-left w-full"
-								><div class="flex justify-between items-center w-full">
+							<AccordionTrigger class="text-left w-full">
+								<div class="flex justify-between items-center w-full mx-2">
 									<span>{member.member.name}</span>
-									<Button variant="destructive" size="sm">Remove</Button>
+									{#if data.group.owner.id === data.me?.id}
+										<Button
+											variant="destructive"
+											size="sm"
+											onclick={() => {
+												remove(member.member.id);
+											}}>Retirer</Button
+										>
+									{/if}
 								</div>
 							</AccordionTrigger>
-							<AccordionContent
-								><div class="pl-4 mt-2">
-									{@render exclusions(member)}
-								</div>
-							</AccordionContent>
+							{#if groupWithExclusions.filter((m) => m.member.name !== member.member.name).length}
+								<AccordionContent
+									><div class="m-2">
+										{@render exclusions(member)}
+									</div>
+								</AccordionContent>
+							{/if}
 						</AccordionItem>
 					{/each}
 				</Accordion>
 			</ScrollArea>
-			<!-- {error && <div class="text-red-500">{error}</div>} -->
-			<Button class="w-full" disabled>Generate Assignments</Button>
+
+			<Button class="w-full" disabled={!isOwner}>Générer les père Noël</Button>
 		</article>
 	</div>
 </div>

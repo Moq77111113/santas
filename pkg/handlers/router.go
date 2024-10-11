@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 	echoMw "github.com/labstack/echo/v4/middleware"
 
@@ -14,7 +15,7 @@ import (
 // Setup the router with registered handlers
 func Bootstrap(c *services.Container) error {
 
-	// c.Web.Use(echoMw.Logger())
+	c.Web.Use(echoMw.Logger())
 	c.Web.Use(echoMw.Recover())
 	c.Web.Pre(echoMw.RemoveTrailingSlashWithConfig(echoMw.TrailingSlashConfig{
 		Skipper: func(c echo.Context) bool {
@@ -29,7 +30,8 @@ func Bootstrap(c *services.Container) error {
 		echoMw.Secure(),
 		echoMw.RequestID(),
 		echoMw.Gzip(),
-		middleware.Session(middleware.CookieStore(c.Config.App.EncryptionKey)),
+		middleware.Session(sessions.NewCookieStore([]byte(c.Config.App.EncryptionKey))),
+		middleware.LoadUser(c.Auth),
 		echoMw.TimeoutWithConfig(echoMw.TimeoutConfig{
 			Timeout: (time.Second * 10),
 			Skipper: func(c echo.Context) bool {
@@ -39,9 +41,6 @@ func Bootstrap(c *services.Container) error {
 	)
 
 	a := g.Group("/api")
-	a.Use(
-		middleware.LoadUser(c.Auth),
-	)
 
 	for _, h := range GetHandlers() {
 		if err := h.Init(c); err != nil {

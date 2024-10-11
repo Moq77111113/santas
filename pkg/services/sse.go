@@ -51,7 +51,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	s.mu.Unlock()
 
 	w := c.Response()
-
+	fmt.Println("NEw client", c.RealIP())
 	flusher, ok := w.Writer.(http.Flusher)
 	if !ok {
 		log.Println("ResponseWriter does not support Flusher")
@@ -68,6 +68,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	for {
 		select {
 		case msg := <-mChan:
+			fmt.Println("msg", msg)
 			event := Event{
 				Data: []byte(msg),
 			}
@@ -76,6 +77,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 			}
 			flusher.Flush()
 		case <-ticker.C:
+			fmt.Println("tick")
 			event := Event{
 				Comment: []byte("keep-alive"),
 			}

@@ -41,6 +41,25 @@ func (gc *GroupCreate) AddMembers(m ...*Member) *GroupCreate {
 	return gc.AddMemberIDs(ids...)
 }
 
+// SetOwnerID sets the "owner" edge to the Member entity by ID.
+func (gc *GroupCreate) SetOwnerID(id int) *GroupCreate {
+	gc.mutation.SetOwnerID(id)
+	return gc
+}
+
+// SetNillableOwnerID sets the "owner" edge to the Member entity by ID if the given value is not nil.
+func (gc *GroupCreate) SetNillableOwnerID(id *int) *GroupCreate {
+	if id != nil {
+		gc = gc.SetOwnerID(*id)
+	}
+	return gc
+}
+
+// SetOwner sets the "owner" edge to the Member entity.
+func (gc *GroupCreate) SetOwner(m *Member) *GroupCreate {
+	return gc.SetOwnerID(m.ID)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (gc *GroupCreate) Mutation() *GroupMutation {
 	return gc.mutation
@@ -122,6 +141,23 @@ func (gc *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := gc.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   group.OwnerTable,
+			Columns: []string{group.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(member.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.group_owner = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

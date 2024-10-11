@@ -25,6 +25,8 @@ type GroupQuery struct {
 	inters      []Interceptor
 	predicates  []predicate.Group
 	withMembers *MemberQuery
+	withOwner   *MemberQuery
+	withFKs     bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +78,28 @@ func (gq *GroupQuery) QueryMembers() *MemberQuery {
 			sqlgraph.From(group.Table, group.FieldID, selector),
 			sqlgraph.To(member.Table, member.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, false, group.MembersTable, group.MembersPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOwner chains the current query on the "owner" edge.
+func (gq *GroupQuery) QueryOwner() *MemberQuery {
+	query := (&MemberClient{config: gq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := gq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, selector),
+			sqlgraph.To(member.Table, member.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, group.OwnerTable, group.OwnerColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(gq.driver.Dialect(), step)
 		return fromU, nil
@@ -276,6 +300,7 @@ func (gq *GroupQuery) Clone() *GroupQuery {
 		inters:      append([]Interceptor{}, gq.inters...),
 		predicates:  append([]predicate.Group{}, gq.predicates...),
 		withMembers: gq.withMembers.Clone(),
+		withOwner:   gq.withOwner.Clone(),
 		// clone intermediate query.
 		sql:  gq.sql.Clone(),
 		path: gq.path,
@@ -290,6 +315,17 @@ func (gq *GroupQuery) WithMembers(opts ...func(*MemberQuery)) *GroupQuery {
 		opt(query)
 	}
 	gq.withMembers = query
+	return gq
+}
+
+// WithOwner tells the query-builder to eager-load the nodes that are connected to
+// the "owner" edge. The optional arguments are used to configure the query builder of the edge.
+func (gq *GroupQuery) WithOwner(opts ...func(*MemberQuery)) *GroupQuery {
+	query := (&MemberClient{config: gq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	gq.withOwner = query
 	return gq
 }
 
@@ -370,11 +406,19 @@ func (gq *GroupQuery) prepareQuery(ctx context.Context) error {
 func (gq *GroupQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Group, error) {
 	var (
 		nodes       = []*Group{}
+		withFKs     = gq.withFKs
 		_spec       = gq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			gq.withMembers != nil,
+			gq.withOwner != nil,
 		}
 	)
+	if gq.withOwner != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, group.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Group).scanValues(nil, columns)
 	}
@@ -397,6 +441,12 @@ func (gq *GroupQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Group,
 		if err := gq.loadMembers(ctx, query, nodes,
 			func(n *Group) { n.Edges.Members = []*Member{} },
 			func(n *Group, e *Member) { n.Edges.Members = append(n.Edges.Members, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := gq.withOwner; query != nil {
+		if err := gq.loadOwner(ctx, query, nodes, nil,
+			func(n *Group, e *Member) { n.Edges.Owner = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -460,6 +510,38 @@ func (gq *GroupQuery) loadMembers(ctx context.Context, query *MemberQuery, nodes
 		}
 		for kn := range nodes {
 			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (gq *GroupQuery) loadOwner(ctx context.Context, query *MemberQuery, nodes []*Group, init func(*Group), assign func(*Group, *Member)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Group)
+	for i := range nodes {
+		if nodes[i].group_owner == nil {
+			continue
+		}
+		fk := *nodes[i].group_owner
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(member.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "group_owner" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
 		}
 	}
 	return nil

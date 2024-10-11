@@ -3,6 +3,10 @@ type Group = {
 	name: string;
 };
 
+type EnrichedGroup = Group & {
+	owner: Member;
+};
+
 type Member = {
 	id: number;
 	name: string;
@@ -13,4 +17,4 @@ type GroupExclusion = {
 	excludedMembers: Member[];
 };
 
-export type { Group, Member, GroupExclusion };
+export type { Group, Member, GroupExclusion, EnrichedGroup };

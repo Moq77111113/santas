@@ -57,6 +57,25 @@ func (gu *GroupUpdate) AddMembers(m ...*Member) *GroupUpdate {
 	return gu.AddMemberIDs(ids...)
 }
 
+// SetOwnerID sets the "owner" edge to the Member entity by ID.
+func (gu *GroupUpdate) SetOwnerID(id int) *GroupUpdate {
+	gu.mutation.SetOwnerID(id)
+	return gu
+}
+
+// SetNillableOwnerID sets the "owner" edge to the Member entity by ID if the given value is not nil.
+func (gu *GroupUpdate) SetNillableOwnerID(id *int) *GroupUpdate {
+	if id != nil {
+		gu = gu.SetOwnerID(*id)
+	}
+	return gu
+}
+
+// SetOwner sets the "owner" edge to the Member entity.
+func (gu *GroupUpdate) SetOwner(m *Member) *GroupUpdate {
+	return gu.SetOwnerID(m.ID)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (gu *GroupUpdate) Mutation() *GroupMutation {
 	return gu.mutation
@@ -81,6 +100,12 @@ func (gu *GroupUpdate) RemoveMembers(m ...*Member) *GroupUpdate {
 		ids[i] = m[i].ID
 	}
 	return gu.RemoveMemberIDs(ids...)
+}
+
+// ClearOwner clears the "owner" edge to the Member entity.
+func (gu *GroupUpdate) ClearOwner() *GroupUpdate {
+	gu.mutation.ClearOwner()
+	return gu
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -167,6 +192,35 @@ func (gu *GroupUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if gu.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   group.OwnerTable,
+			Columns: []string{group.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(member.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := gu.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   group.OwnerTable,
+			Columns: []string{group.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(member.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, gu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{group.Label}
@@ -216,6 +270,25 @@ func (guo *GroupUpdateOne) AddMembers(m ...*Member) *GroupUpdateOne {
 	return guo.AddMemberIDs(ids...)
 }
 
+// SetOwnerID sets the "owner" edge to the Member entity by ID.
+func (guo *GroupUpdateOne) SetOwnerID(id int) *GroupUpdateOne {
+	guo.mutation.SetOwnerID(id)
+	return guo
+}
+
+// SetNillableOwnerID sets the "owner" edge to the Member entity by ID if the given value is not nil.
+func (guo *GroupUpdateOne) SetNillableOwnerID(id *int) *GroupUpdateOne {
+	if id != nil {
+		guo = guo.SetOwnerID(*id)
+	}
+	return guo
+}
+
+// SetOwner sets the "owner" edge to the Member entity.
+func (guo *GroupUpdateOne) SetOwner(m *Member) *GroupUpdateOne {
+	return guo.SetOwnerID(m.ID)
+}
+
 // Mutation returns the GroupMutation object of the builder.
 func (guo *GroupUpdateOne) Mutation() *GroupMutation {
 	return guo.mutation
@@ -240,6 +313,12 @@ func (guo *GroupUpdateOne) RemoveMembers(m ...*Member) *GroupUpdateOne {
 		ids[i] = m[i].ID
 	}
 	return guo.RemoveMemberIDs(ids...)
+}
+
+// ClearOwner clears the "owner" edge to the Member entity.
+func (guo *GroupUpdateOne) ClearOwner() *GroupUpdateOne {
+	guo.mutation.ClearOwner()
+	return guo
 }
 
 // Where appends a list predicates to the GroupUpdate builder.
@@ -346,6 +425,35 @@ func (guo *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error
 			Inverse: false,
 			Table:   group.MembersTable,
 			Columns: group.MembersPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(member.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if guo.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   group.OwnerTable,
+			Columns: []string{group.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(member.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := guo.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   group.OwnerTable,
+			Columns: []string{group.OwnerColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(member.FieldID, field.TypeInt),

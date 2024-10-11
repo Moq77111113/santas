@@ -10,10 +10,12 @@ export const load = (async ({ params }) => {
 	if (isNaN(id)) {
 		redirect(307, '/');
 	}
-	const groupWithExclusions = await api.groups.exlusions(id);
 
+	const groupWithExclusions = (await api.groups.exlusions(id)) || [];
+	const group = await api.groups.group(id);
 	return {
 		groupWithExclusions,
-        id
+		id,
+		group
 	};
 }) satisfies PageLoad;

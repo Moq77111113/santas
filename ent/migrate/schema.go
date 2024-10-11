@@ -52,12 +52,21 @@ var (
 	GroupsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString, Unique: true},
+		{Name: "group_owner", Type: field.TypeInt, Nullable: true},
 	}
 	// GroupsTable holds the schema information for the "groups" table.
 	GroupsTable = &schema.Table{
 		Name:       "groups",
 		Columns:    GroupsColumns,
 		PrimaryKey: []*schema.Column{GroupsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "groups_members_owner",
+				Columns:    []*schema.Column{GroupsColumns[2]},
+				RefColumns: []*schema.Column{MembersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// MembersColumns holds the columns for the "members" table.
 	MembersColumns = []*schema.Column{
@@ -108,6 +117,7 @@ func init() {
 	ExclusionsTable.ForeignKeys[0].RefTable = GroupsTable
 	ExclusionsTable.ForeignKeys[1].RefTable = MembersTable
 	ExclusionsTable.ForeignKeys[2].RefTable = MembersTable
+	GroupsTable.ForeignKeys[0].RefTable = MembersTable
 	GroupMembersTable.ForeignKeys[0].RefTable = GroupsTable
 	GroupMembersTable.ForeignKeys[1].RefTable = MembersTable
 }

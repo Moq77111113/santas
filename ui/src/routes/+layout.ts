@@ -6,12 +6,10 @@ export const prerender = true;
 export const ssr = false;
 
 export const load = (async ({ url }) => {
-	const groups = await api.groups.list();
-
 	const me = await api.auth.me().catch(() => null);
 	if (!me && url.pathname !== '/register') {
 		return goto('/register');
 	}
 
-	return { groups, me };
+	return { me };
 }) satisfies LayoutLoad;

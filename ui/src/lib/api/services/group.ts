@@ -1,5 +1,5 @@
 import { Client } from '$lib/api/client';
-import type { Group, GroupExclusion, Member } from '../dto';
+import type { EnrichedGroup, Group, GroupExclusion, Member } from '../dto';
 
 const base = `/api/group` as const;
 class GroupService {
@@ -9,11 +9,11 @@ class GroupService {
 		this.client = client;
 	}
 
-	async list(): Promise<Group[]> {
+	async list(): Promise<EnrichedGroup[]> {
 		return this.client.request(base);
 	}
 
-	async group(id: number): Promise<Group> {
+	async group(id: number): Promise<EnrichedGroup> {
 		return this.client.request(`${base}/${id}`);
 	}
 
@@ -34,12 +34,15 @@ class GroupService {
 		});
 	}
 
-	async addMember(groupId: number, name: string): Promise<void> {
-		const formData = new FormData();
-		formData.append('name', name);
-		return this.client.request(`${base}/${groupId}/member`, {
-			method: 'POST',
-			body: formData
+	async join(groupId: number): Promise<void> {
+		return this.client.request(`${base}/${groupId}/join`, {
+			method: 'POST'
+		});
+	}
+
+	async removeMember(groupId: number, memberId: number): Promise<void> {
+		return this.client.request(`${base}/${groupId}/member/${memberId}`, {
+			method: 'DELETE'
 		});
 	}
 
