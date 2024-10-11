@@ -46,12 +46,18 @@ class GroupService {
 		});
 	}
 
-	async addExclusion(groupId: number, memberId: number, name: string): Promise<void> {
+	async addExclusion(groupId: number, memberId: number, excludeId: number): Promise<void> {
 		const formData = new FormData();
-		formData.append('name', name);
+		formData.append('memberId', `${excludeId}`);
 		return this.client.request(`${base}/${groupId}/member/${memberId}/exclusion`, {
 			method: 'POST',
 			body: formData
+		});
+	}
+
+	async removeExclusion(groupId: number, memberId: number, excludeId: number): Promise<void> {
+		return this.client.request(`${base}/${groupId}/member/${memberId}/exclusion/${excludeId}`, {
+			method: 'DELETE'
 		});
 	}
 

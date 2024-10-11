@@ -29,6 +29,7 @@
 	});
 
 	const isOwner = $derived(data.group.owner.id === data.me?.id);
+	const isMember = $derived(groupWithExclusions.some((_) => _.member.id === data.me?.id));
 	const join = async () => {
 		await api.groups.join(data.id);
 	};
@@ -43,6 +44,14 @@
 		goto('/');
 	};
 
+	const toggleExclusion = async (value: boolean, id: number, excludeId: number) => {
+		if (value) {
+			return await api.groups.addExclusion(data.id, id, excludeId);
+		}
+
+		return await api.groups.removeExclusion(data.id, id, excludeId);
+	};
+
 	onDestroy(() => {
 		unsubsribe();
 	});
@@ -55,19 +64,26 @@
 
 {#snippet exclusions({ member, excludedMembers }: GroupExclusion)}
 	<Label class="text-sm font-medium mb-2 block">Exclusions:</Label>
-	<ScrollArea class="max-h-40 w-full rounded-md border-muted mb-2 flex flex-col">
+	<div
+		class=" w-full rounded-md border-muted mb-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+	>
 		{#each groupWithExclusions
 			.filter((m) => m.member.name !== member.name)
 			.sort((a, b) => a.member.name.localeCompare(b.member.name)) as { member: otherMember }}
-			<div class="flex items-center space-x-2 space-y-2  p-1">
+			<div class="flex items-center space-x-2 space-y-2 p-1">
 				<Checkbox
+					disabled={!isMember}
 					id={`${member.id}-${otherMember.id}`}
 					checked={excludedMembers.some((_) => _.id === otherMember.id)}
+					onCheckedChange={(v) => {
+						if (typeof v !== 'boolean') return;
+						toggleExclusion(v, member.id, otherMember.id);
+					}}
 				/>
 				<Label for={`${member.id}-${otherMember.id}`}>{otherMember.name}</Label>
 			</div>
 		{/each}
-	</ScrollArea>
+	</div>
 {/snippet}
 
 <div class="container mx-auto p-4 md:p-6 lg:p-8">
@@ -82,6 +98,7 @@
 
 		<article class=" rounded-lg shadow-md flex flex-col space-y-4">
 			<h2 class="text-lg font-semibold mb-3">Participants & Exclusions</h2>
+			<span class="text-md">{groupWithExclusions.length} Membres</span>
 			<ScrollArea class="h-[300px] md:h-[600px] w-full rounded-md border p-4">
 				<Accordion multiple class="w-full">
 					{#each groupWithExclusions as member}
@@ -112,7 +129,7 @@
 				</Accordion>
 			</ScrollArea>
 
-			<Button class="w-full" disabled={!isOwner}>Générer les père Noël</Button>
+			<Button class="w-full" disabled={!isOwner}>Générer les pères Noël</Button>
 		</article>
 	</div>
 </div>

@@ -11,6 +11,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/moq77111113/chmoly-santas/config"
+	"github.com/moq77111113/chmoly-santas/ent"
 )
 
 type (
@@ -44,6 +45,11 @@ func NewSSEClient(config *config.Config) *SSEClient {
 
 func (s *SSEClient) AddClient(c echo.Context, channel string) {
 
+	me := c.Get("me").(*ent.Member)
+	if me == nil {
+		c.String(http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 	mChan := make(chan string)
 
 	s.mu.Lock()
@@ -51,10 +57,10 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	s.mu.Unlock()
 
 	w := c.Response()
-	fmt.Println("NEw client", c.RealIP())
+
 	flusher, ok := w.Writer.(http.Flusher)
 	if !ok {
-		log.Println("ResponseWriter does not support Flusher")
+		c.Logger().Error("ResponseWriter does not support Flusher")
 		c.String(http.StatusInternalServerError, "Streaming unsupported!")
 		return
 	}
@@ -62,13 +68,13 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case msg := <-mChan:
-			fmt.Println("msg", msg)
+
 			event := Event{
 				Data: []byte(msg),
 			}
@@ -77,7 +83,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 			}
 			flusher.Flush()
 		case <-ticker.C:
-			fmt.Println("tick")
+
 			event := Event{
 				Comment: []byte("keep-alive"),
 			}
@@ -86,7 +92,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 			}
 			flusher.Flush()
 		case <-c.Request().Context().Done():
-			log.Printf("SSE client disconnected, ip: %s", c.RealIP())
+			log.Printf("SSE client disconnected, %s@%s", me.Name, c.RealIP())
 			s.removeClient(channel, mChan)
 			return
 		}

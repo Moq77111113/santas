@@ -77,6 +77,14 @@ func (s *ExclusionRepo) MembersWithExclusions(ctx context.Context, groupId int) 
 
 }
 
-func (s *ExclusionRepo) RemoveExclusion(ctx context.Context, id int) error {
-	return s.orm.Exclusion.DeleteOneID(id).Exec(ctx)
+func (s *ExclusionRepo) RemoveExclusion(ctx context.Context, groupId, memberId, excludeId int) error {
+	_, err := s.orm.Exclusion.
+		Delete().
+		Where(
+			exclusion.GroupIDEQ(groupId),
+			exclusion.MemberIDEQ(memberId),
+			exclusion.ExcludeIDEQ(excludeId),
+		).
+		Exec(ctx)
+	return err
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/http"
 	"strings"
 	"time"
 
@@ -15,12 +16,11 @@ import (
 // Setup the router with registered handlers
 func Bootstrap(c *services.Container) error {
 
-	c.Web.Use(echoMw.Logger())
-	c.Web.Use(echoMw.Recover())
 	c.Web.Pre(echoMw.RemoveTrailingSlashWithConfig(echoMw.TrailingSlashConfig{
 		Skipper: func(c echo.Context) bool {
 			return !strings.HasPrefix(c.Request().URL.Path, "/api")
 		},
+		RedirectCode: http.StatusMovedPermanently,
 	}))
 
 	g := c.Web.Group("")
@@ -29,6 +29,13 @@ func Bootstrap(c *services.Container) error {
 		echoMw.Recover(),
 		echoMw.Secure(),
 		echoMw.RequestID(),
+	)
+
+	a := g.Group("/api")
+
+	a.Use(
+		middleware.Logger(),
+		middleware.LogRequest(),
 		echoMw.Gzip(),
 		middleware.Session(sessions.NewCookieStore([]byte(c.Config.App.EncryptionKey))),
 		middleware.LoadUser(c.Auth),
@@ -39,8 +46,6 @@ func Bootstrap(c *services.Container) error {
 			},
 		}),
 	)
-
-	a := g.Group("/api")
 
 	for _, h := range GetHandlers() {
 		if err := h.Init(c); err != nil {

@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/moq77111113/chmoly-santas/ent"
 	"github.com/moq77111113/chmoly-santas/pkg/form"
 	"github.com/moq77111113/chmoly-santas/pkg/middleware"
 	"github.com/moq77111113/chmoly-santas/pkg/services"
@@ -28,7 +26,7 @@ type (
 	}
 
 	addExclusionForm struct {
-		ExcludeName string `form:"name" validate:"required"`
+		ExcludeId int `form:"memberId" validate:"required"`
 		form.Form
 	}
 )
@@ -67,6 +65,7 @@ func (h *Group) Routes(g *echo.Group) {
 	withId.GET("/exclusion", h.MembersWithExclusions)
 	withId.DELETE("/member/:memberId", h.RemoveMember, checkParamMw("memberId"))
 	withId.POST("/member/:memberId/exclusion", h.AddExclusion, checkParamMw("memberId"))
+	withId.DELETE("/member/:memberId/exclusion/:excludeId", h.RemoveExclusion, checkParamMw("memberId"), checkParamMw("excludeId"))
 }
 
 func (h *Group) IsApi() bool {
@@ -113,9 +112,8 @@ func (h *Group) List(ctx echo.Context) error {
 
 // Returns a group
 func (h *Group) GetGroup(ctx echo.Context) error {
-	id := ctx.Get("id").(int)
 
-	gr, err := h.GroupRepo.Get(ctx.Request().Context(), id)
+	gr, err := h.getGroupByID(ctx)
 
 	if err != nil {
 		ctx.Logger().Error(err)
@@ -142,18 +140,18 @@ func (h *Group) GetMembers(ctx echo.Context) error {
 // Creates a group
 func (h *Group) CreateGroup(ctx echo.Context) error {
 
-	me := ctx.Get(middleware.AuthSessionKey)
-
-	if me == nil {
-		return ctx.JSON(401, "Unauthorized")
+	me, err := h.Auth.GetAuthenticatedUser(ctx)
+	if err != nil {
+		return err
 	}
+
 	var form createGroupForm
 	if err := form.BindAndValidate(ctx, &form); err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusBadRequest, form.Errors())
 	}
 
-	gr, err := h.GroupRepo.CreateGroup(ctx.Request().Context(), me.(*ent.Member), form.Name)
+	gr, err := h.GroupRepo.CreateGroup(ctx.Request().Context(), me, form.Name)
 
 	if err != nil {
 		ctx.Logger().Error(err)
@@ -167,13 +165,13 @@ func (h *Group) CreateGroup(ctx echo.Context) error {
 func (h *Group) Join(ctx echo.Context) error {
 
 	id := ctx.Get("id").(int)
-	me := ctx.Get(middleware.AuthSessionKey)
 
-	if me == nil {
-		return ctx.JSON(401, "Unauthorized")
+	me, err := getCurrentUser(ctx)
+	if err != nil {
+		return err
 	}
 
-	err := h.GroupRepo.AddMember(ctx.Request().Context(), id, me.(*ent.Member).ID)
+	err = h.GroupRepo.AddMember(ctx.Request().Context(), id, me.ID)
 
 	if err != nil {
 		ctx.Logger().Error(err)
@@ -187,21 +185,19 @@ func (h *Group) Join(ctx echo.Context) error {
 func (h *Group) RemoveMember(ctx echo.Context) error {
 	id := ctx.Get("id").(int)
 	memberId := ctx.Get("memberId").(int)
-	me := ctx.Get(middleware.AuthSessionKey)
 
-	if me == nil {
-		return ctx.JSON(401, "Unauthorized")
+	me, err := getCurrentUser(ctx)
+	if err != nil {
+		return err
 	}
 
-	gr, err := h.GroupRepo.Get(ctx.Request().Context(), id)
+	gr, err := h.getGroupByID(ctx)
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusNotFound, "group not found")
 	}
 
-	fmt.Println("ICI", gr.Owner.ID, me.(*ent.Member).ID, memberId, me.(*ent.Member).ID)
-
-	if gr.Owner.ID != me.(*ent.Member).ID && memberId != me.(*ent.Member).ID {
+	if gr.Owner.ID != me.ID && memberId != me.ID {
 		return echo.NewHTTPError(http.StatusForbidden, "You are not allowed to remove this member")
 	}
 
@@ -226,27 +222,11 @@ func (h *Group) AddExclusion(ctx echo.Context) error {
 
 	id := ctx.Get("id").(int)
 	memberId := ctx.Get("memberId").(int)
-	mms, err := h.GroupRepo.GetMembers(ctx.Request().Context(), id)
-	if err != nil {
-		ctx.Logger().Error(err)
-		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
-	}
-	var excludeId int
-	for _, mm := range mms {
-		// Compare insensitive name
-		if strings.EqualFold(mm.Name, form.ExcludeName) {
-			excludeId = mm.ID
-			break
-		}
-	}
-	if excludeId == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
-	}
 
-	_, err = h.ExclusionRepo.AddExclusion(ctx.Request().Context(), services.AddExclusion{
+	_, err := h.ExclusionRepo.AddExclusion(ctx.Request().Context(), services.AddExclusion{
 		GroupId:   id,
 		MemberId:  memberId,
-		ExcludeId: excludeId,
+		ExcludeId: form.ExcludeId,
 	})
 
 	if err != nil {
@@ -256,6 +236,21 @@ func (h *Group) AddExclusion(ctx echo.Context) error {
 
 	h.broadcast(ctx, id)
 	return ctx.NoContent(http.StatusCreated)
+}
+
+func (h *Group) RemoveExclusion(ctx echo.Context) error {
+	id := ctx.Get("id").(int)
+	memberId := ctx.Get("memberId").(int)
+	excludeId := ctx.Get("excludeId").(int)
+
+	err := h.ExclusionRepo.RemoveExclusion(ctx.Request().Context(), id, memberId, excludeId)
+	if err != nil {
+		ctx.Logger().Error(err)
+		return echo.NewHTTPError(http.StatusNotFound, "Member not found")
+	}
+
+	h.broadcast(ctx, id)
+	return ctx.NoContent(http.StatusNoContent)
 }
 
 // Returns a group exclusions
@@ -276,7 +271,7 @@ func (h *Group) Subsribe(ctx echo.Context) error {
 
 	id := ctx.Get("id").(int)
 
-	_, err := h.GroupRepo.Get(ctx.Request().Context(), id)
+	_, err := h.getGroupByID(ctx)
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusNotFound, "group not found")
@@ -286,8 +281,9 @@ func (h *Group) Subsribe(ctx echo.Context) error {
 	return nil
 }
 
-func (h *Group) BroadcastGroup(id int, message string) {
-	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), message)
+func (h *Group) getGroupByID(ctx echo.Context) (*services.EnrichedWithOwner, error) {
+	id := ctx.Get("id").(int)
+	return h.GroupRepo.Get(ctx.Request().Context(), id)
 }
 
 func (h *Group) broadcast(ctx echo.Context, id int) error {
@@ -303,7 +299,7 @@ func (h *Group) broadcast(ctx echo.Context, id int) error {
 	if err != nil {
 		return err
 	}
+	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), string(jsonData))
 
-	h.BroadcastGroup(id, string(jsonData))
 	return nil
 }
