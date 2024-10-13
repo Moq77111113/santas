@@ -1,3 +1,5 @@
+
+import { toast } from 'svelte-sonner';
 import type { Events } from './dto';
 import type { RequestOptions } from './options';
 import AuthService from './services/auth';
@@ -11,7 +13,7 @@ export class Client {
 	private cancelControllers = new Map<string, AbortController>();
 	private allowAutomaticCancellation = true;
 
-	constructor(baseUrl: string) {
+	constructor(baseUrl: string = "") {
 		this.baseUrl = baseUrl;
 
 		this.groups = new GroupService(this);
@@ -24,9 +26,6 @@ export class Client {
 		const fetchImplementation = options.fetch || fetch;
 
 		const response = await fetchImplementation(url, this.serializeRequestOptions(path, options));
-		// if (response.redirected) {
-		// 	window.location.href = response.url;
-		// }
 
 		let data = {};
 		try {
@@ -103,6 +102,8 @@ export class Client {
 			const eventSource = new EventSource(path);
 			eventSource.onmessage = (event) => {
 				try {
+
+					toast(`Received event: ${event.data}`);
 					const {type, data} = JSON.parse(event.data);
 
 					const parsed = JSON.parse(data);
@@ -119,8 +120,6 @@ export class Client {
 		}
 	}
 
-
-
-const api = new Client('http://localhost:3456');
+const api = new Client();
 
 export default api;

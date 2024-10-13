@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Toaster } from '@/lib/components/ui/sonner';
 	import { type Snippet } from 'svelte';
 	import '../app.css';
 	import type { PageData } from './$types';
@@ -30,3 +31,5 @@
 		<p class="text-sm">© 2024 Secret Santa</p>
 	</footer>
 </div>
+
+<Toaster visibleToasts={3} />
