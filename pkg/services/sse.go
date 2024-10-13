@@ -1,9 +1,7 @@
 package services
 
 import (
-	"bytes"
-	"fmt"
-	"io"
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -12,26 +10,19 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/moq77111113/chmoly-santas/config"
 	"github.com/moq77111113/chmoly-santas/ent"
+	"github.com/moq77111113/chmoly-santas/pkg/event"
 )
 
 type (
 	SSEClient struct {
 		Config   *config.Config
 		mu       sync.RWMutex
-		channels map[string][]chan string
+		channels map[string][]chan Message
 	}
 
-	Event struct {
-		// ID of the event, set the EventSource last event ID value
-		ID []byte
-		// Data to send in the event
-		Data []byte
-		// Event type identifying the event. The browser can use this to decide how to handle the event
-		Event []byte
-		// Reconnection time, the browser will wait for the specified time before trying to reconnect (ms)
-		Retry []byte
-		// To send a comment to keep the connection alive
-		Comment []byte
+	Message struct {
+		Type string `json:"type"`
+		Data string `json:"data"`
 	}
 )
 
@@ -39,7 +30,7 @@ func NewSSEClient(config *config.Config) *SSEClient {
 
 	return &SSEClient{
 		Config:   config,
-		channels: make(map[string][]chan string),
+		channels: make(map[string][]chan Message),
 	}
 }
 
@@ -50,7 +41,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 		c.String(http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	mChan := make(chan string)
+	mChan := make(chan Message)
 
 	s.mu.Lock()
 	s.channels[channel] = append(s.channels[channel], mChan)
@@ -75,9 +66,16 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 		select {
 		case msg := <-mChan:
 
-			event := Event{
-				Data: []byte(msg),
+			bytes, err := msg.toBytesString()
+
+			if err != nil {
+				c.Logger().Errorf("Error marshalling message: %v", err)
+				continue
 			}
+			event := event.Event{
+				Data: []byte(bytes),
+			}
+
 			if err := event.SendTo(w); err != nil {
 				c.Logger().Errorf("Error sending event: %v", err)
 				return
@@ -85,8 +83,17 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 			flusher.Flush()
 		case <-ticker.C:
 
-			event := Event{
-				Comment: []byte("keep-alive"),
+			bytes, err := Message{
+				Type: "keep-alive",
+				Data: "keep-alive",
+			}.toBytesString()
+
+			if err != nil {
+				c.Logger().Errorf("Error marshalling message: %v", err)
+				continue
+			}
+			event := event.Event{
+				Comment: []byte(bytes),
 			}
 			if err := event.SendTo(w); err != nil {
 				return
@@ -100,7 +107,7 @@ func (s *SSEClient) AddClient(c echo.Context, channel string) {
 	}
 }
 
-func (s *SSEClient) Broadcast(channelID, message string) {
+func (s *SSEClient) Broadcast(channelID string, message Message) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -114,7 +121,7 @@ func (s *SSEClient) Broadcast(channelID, message string) {
 	}
 }
 
-func (s *SSEClient) removeClient(channelID string, mChan chan string) {
+func (s *SSEClient) removeClient(channelID string, mChan chan Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -133,52 +140,7 @@ func (s *SSEClient) removeClient(channelID string, mChan chan string) {
 	close(mChan)
 }
 
-func (e *Event) SendTo(w io.Writer) error {
-	if len(e.Data) == 0 && len(e.Comment) == 0 {
-		return nil
-	}
+func (m Message) toBytesString() ([]byte, error) {
 
-	if len(e.Data) > 0 {
-
-		// Attempt to send the event ID
-		if _, err := fmt.Fprintf(w, "id: %s\n", e.ID); err != nil {
-			return err
-		}
-
-		// Split data by new line
-		// Send each line as a separate data event
-		sd := bytes.Split(e.Data, []byte("\n"))
-		for _, d := range sd {
-			if _, err := fmt.Fprintf(w, "data: %s\n", d); err != nil {
-				return err
-			}
-		}
-
-		// Send the event type
-		if len(e.Event) > 0 {
-			if _, err := fmt.Fprintf(w, "event: %s\n", e.Event); err != nil {
-				return err
-			}
-		}
-
-		// Send the reconnection time
-		if len(e.Retry) > 0 {
-			if _, err := fmt.Fprintf(w, "retry: %s\n", e.Retry); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Send a comment to keep the connection alive
-	if len(e.Comment) > 0 {
-		if _, err := fmt.Fprintf(w, ": %s\n", e.Comment); err != nil {
-			return err
-		}
-	}
-
-	if _, err := fmt.Fprint(w, "\n"); err != nil {
-		return err
-	}
-
-	return nil
+	return json.Marshal(m)
 }

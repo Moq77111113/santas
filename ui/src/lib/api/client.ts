@@ -1,3 +1,4 @@
+import type { Events } from './dto';
 import type { RequestOptions } from './options';
 import AuthService from './services/auth';
 import GroupService from './services/group';
@@ -35,7 +36,7 @@ export class Client {
 		}
 
 		if (response.status >= 400) {
-			throw new Error('An error occurred');
+			throw new Error(`An error occurred`,);
 		}
 
 		return data as T;
@@ -93,7 +94,32 @@ export class Client {
 			this.cancelControllers.delete(key);
 		}
 	}
-}
+
+	public  subscribe<T extends Events>(path: string, callback: (data: T) => void): () => void {
+			if (typeof window === 'undefined') {
+				throw new Error('EventSource is not supported');
+			}
+			
+			const eventSource = new EventSource(path);
+			eventSource.onmessage = (event) => {
+				try {
+					const {type, data} = JSON.parse(event.data);
+
+					const parsed = JSON.parse(data);
+
+					callback({type, data: parsed} as T);
+				} catch (e) {
+					// TODO: handle error
+					console.error(e);
+				}
+			};
+			return () => {
+				eventSource.close();
+			};
+		}
+	}
+
+
 
 const api = new Client('http://localhost:3456');
 

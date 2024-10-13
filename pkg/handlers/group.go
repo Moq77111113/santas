@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
 	"math"
 	"net/http"
 
@@ -68,7 +66,7 @@ func (h *Group) Routes(g *echo.Group) {
 	withId.POST("/join", h.Join)
 	withId.GET("/events", h.Subscribe)
 	withId.GET("/member", h.GetMembers)
-	withId.GET("/config", h.GetConfig)
+	withId.GET("/config", h.GroupConfig)
 	withId.GET("/exclusion", h.MembersWithExclusions)
 	withId.DELETE("/member/:memberId", h.RemoveMember, checkParamMw("memberId"))
 	withId.POST("/member/:memberId/exclusion", h.AddExclusion, checkParamMw("memberId"))
@@ -128,55 +126,32 @@ func (h *Group) Create(ctx echo.Context) error {
 }
 
 // Get Config
-func (h *Group) GetConfig(ctx echo.Context) error {
-
-	maxAllowedMembers, err := h.getMaxExclusions(ctx, ctx.Get("id").(int))
+func (h *Group) GroupConfig(ctx echo.Context) error {
+	c, err := h.getConfig(ctx)
 	if err != nil {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusNotFound, "group not found")
+	}
+
+	return ctx.JSON(http.StatusOK, c)
+}
+
+func (h *Group) getConfig(ctx echo.Context) (*GroupConfig, error) {
+	id := ctx.Get("id").(int)
+	maxAllowedMembers, err := h.getMaxExclusions(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 
 	c := &GroupConfig{
 		MaxMemberExclusions: maxAllowedMembers,
 	}
-	return ctx.JSON(http.StatusOK, c)
+	return c, nil
 }
 
 func (h *Group) getGroupByID(ctx echo.Context) (*services.EnrichedWithOwner, error) {
 	id := ctx.Get("id").(int)
 	return h.GroupRepo.Get(ctx.Request().Context(), id)
-}
-
-func (h *Group) Subscribe(ctx echo.Context) error {
-
-	id := ctx.Get("id").(int)
-
-	_, err := h.getGroupByID(ctx)
-	if err != nil {
-		ctx.Logger().Error(err)
-		return echo.NewHTTPError(http.StatusNotFound, "group not found")
-	}
-
-	h.SSE.AddClient(ctx, fmt.Sprintf("%s:%d", channelBase, id))
-	return nil
-}
-
-func (h *Group) broadcast(ctx echo.Context, id int) error {
-
-	exc, err := h.ExclusionRepo.MembersWithExclusions(ctx.Request().Context(), id)
-
-	if err != nil {
-		return err
-	}
-
-	jsonData, err := json.Marshal(exc)
-
-	if err != nil {
-		return err
-	}
-	h.SSE.Broadcast(fmt.Sprintf("%s:%d", channelBase, id), string(jsonData))
-
-	return nil
 }
 
 func (h *Group) getMaxExclusions(ctx echo.Context, groupId int) (int, error) {

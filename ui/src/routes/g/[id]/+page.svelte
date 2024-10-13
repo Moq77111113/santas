@@ -24,12 +24,24 @@
 	const { data }: Props = $props();
 
 	let groupWithExclusions = $state(data.groupWithExclusions);
-	const unSubsribe = api.groups.subscribe(data.id, (exc) => {
-		groupWithExclusions = exc;
+	let conf = $state(data.config);
+	let f = $state<any[]>([]);
+	const unSubscribe = api.groups.subscribe(data.id, (ev) => {
+		console.log(ev);
+		f.push(ev);
+
+		if (ev.type === 'exclusions') {
+			groupWithExclusions = ev.data ?? [];
+		}
+
+		if (ev.type === 'config') {
+			conf = ev.data;
+		}
 	});
 
 	const isOwner = $derived(data.group.owner.id === data.me?.id);
 	const isMember = $derived(groupWithExclusions.some((_) => _.member.id === data.me?.id));
+
 	const join = async () => {
 		await api.groups.join(data.id);
 	};
@@ -56,11 +68,24 @@
 		groupWithExclusions.reduce(
 			(acc, { member }) => {
 				acc[member.id] =
-					groupWithExclusions.filter((_) => _.excludedMembers.some((m) => m.id === member.id))
-						.length < data.config.maxMemberExclusions;
+					groupWithExclusions.filter((_) => _.excludedMembers?.some((m) => m.id === member.id))
+						.length < conf.maxMemberExclusions;
 				return acc;
 			},
 			{} as Record<number, boolean>
+		)
+	);
+
+	const memberExclusions = $derived(
+		groupWithExclusions.reduce(
+			(acc, { member }) => {
+				acc[member.name] = groupWithExclusions
+					.filter((_) => _.excludedMembers?.some((m) => m.id === member.id))
+					.map((_) => _.excludedMembers)
+					.join(', ');
+				return acc;
+			},
+			{} as Record<string, string>
 		)
 	);
 
@@ -70,7 +95,7 @@
 	};
 
 	onDestroy(() => {
-		unSubsribe();
+		unSubscribe();
 	});
 </script>
 
@@ -90,11 +115,11 @@
 			<div class="flex items-center space-x-2 space-y-2 p-1">
 				<Checkbox
 					disabled={!isMember ||
-						(!excludedMembers.some((_) => _.id === otherMember.id) &&
+						(!excludedMembers?.some((_) => _.id === otherMember.id) &&
 							(!memberExclusionCounts[otherMember.id] ||
-								excludedMembers.length >= data.config.maxMemberExclusions))}
+								excludedMembers.length >= conf.maxMemberExclusions))}
 					id={`${member.id}-${otherMember.id}`}
-					checked={excludedMembers.some((_) => _.id === otherMember.id)}
+					checked={excludedMembers?.some((_) => _.id === otherMember.id)}
 					onCheckedChange={(v) => {
 						if (typeof v !== 'boolean') return;
 						toggleExclusion(v, member.id, otherMember.id);
@@ -115,7 +140,6 @@
 		{:else}
 			<Button variant="destructive" on:click={leave}>Quitter</Button>
 		{/if}
-
 		<article class=" rounded-lg shadow-md flex flex-col space-y-4">
 			<h2 class="text-lg font-semibold mb-3">Participants & Exclusions</h2>
 			<span class="text-md">{groupWithExclusions.length} Membres</span>

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/moq77111113/chmoly-santas/ent"
+	"github.com/moq77111113/chmoly-santas/ent/exclusion"
 	"github.com/moq77111113/chmoly-santas/ent/group"
 	"github.com/moq77111113/chmoly-santas/ent/member"
 )
@@ -103,14 +104,14 @@ func (s *GroupRepo) RemoveMember(ctx context.Context, id, memberId int) (*ent.Me
 
 	mm, err = mm.Update().RemoveGroupIDs(id).Save(ctx)
 
+	s.orm.Exclusion.Delete().Where(exclusion.GroupID(id), exclusion.MemberID(memberId)).Exec(ctx)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return mm, nil
 }
-
-
 
 func (s *GroupRepo) CreateMember(ctx context.Context, name string) (*ent.Member, error) {
 	return s.orm.Member.Create().SetName(name).Save(ctx)

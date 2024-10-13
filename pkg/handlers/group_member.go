@@ -23,6 +23,8 @@ func (h *Group) Join(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "unable to add member")
 	}
 	h.broadcast(ctx, id)
+	h.broadcastConfig(ctx, id)
+
 	return ctx.JSON(http.StatusCreated, nil)
 }
 
@@ -67,5 +69,6 @@ func (h *Group) RemoveMember(ctx echo.Context) error {
 	}
 
 	h.broadcast(ctx, id)
+	h.broadcastConfig(ctx, id)
 	return ctx.NoContent(http.StatusNoContent)
 }

@@ -1,5 +1,5 @@
 import { Client } from '$lib/api/client';
-import type { EnrichedGroup, Group, GroupConfig, GroupExclusion, Member } from '../dto';
+import type { EnrichedGroup, ExclusionsEvent, Group, GroupConfig, GroupConfigEvent, GroupExclusion, Member } from '../dto';
 
 const base = `/api/group` as const;
 class GroupService {
@@ -69,23 +69,14 @@ class GroupService {
 		return this.client.request(`${base}/${id}/santas`);
 	}
 
-	subscribe(id: number, callback: (exclusions: GroupExclusion[]) => void): () => void {
-		if (typeof window === 'undefined') {
-			throw new Error('EventSource is not supported');
-		}
-		const eventSource = new EventSource(`${base}/${id}/events`);
-		eventSource.onmessage = (event) => {
-			try {
-				const exclusions = JSON.parse(event.data);
-				callback(exclusions);
-			} catch (e) {
-				// TODO: handle error
-				console.error(e);
-			}
-		};
-		return () => {
-			eventSource.close();
-		};
+
+
+	 
+	subscribe(id: number, on: (ev: ExclusionsEvent | GroupConfigEvent) => void): () => void {
+		return this.client.subscribe(`${base}/${id}/events`, on);
+		
+
+
 	}
 }
 

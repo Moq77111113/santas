@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -82,8 +81,6 @@ func (h *Group) checkExclusion(ctx echo.Context, groupId, memberId, excludeId in
 
 	mexc, err := h.ExclusionRepo.MemberWithExclusions(ctx.Request().Context(), groupId, memberId)
 
-	fmt.Printf("Max allowed members: %d, current %d", maxAllowedMembers, len(mexc.ExcludedMembers))
-
 	if err != nil {
 		return err
 	}
@@ -96,7 +93,6 @@ func (h *Group) checkExclusion(ctx echo.Context, groupId, memberId, excludeId in
 	// Check if the member is the excluded member is excluded more than the permitted percentage
 	eexc, err := h.ExclusionRepo.MembersExcludedBy(ctx.Request().Context(), groupId, excludeId)
 
-	fmt.Printf("Max allowed members: %d, current %d", maxAllowedMembers, len(eexc.ExcludedBy))
 	if err != nil {
 		return err
 	}
