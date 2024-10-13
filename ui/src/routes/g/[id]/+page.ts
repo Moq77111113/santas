@@ -1,6 +1,6 @@
 import api from '@/lib/api/client';
-import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
+import type { PageLoad } from './$types';
 
 export const prerender = false;
 export const ssr = false;
@@ -11,11 +11,13 @@ export const load = (async ({ params }) => {
 		redirect(307, '/');
 	}
 
-	const groupWithExclusions = (await api.groups.exlusions(id)) || [];
+	const groupWithExclusions = (await api.groups.exclusions(id)) || [];
 	const group = await api.groups.group(id);
+	const config = await api.groups.config(id);
 	return {
 		groupWithExclusions,
 		id,
-		group
+		group, 
+		config
 	};
 }) satisfies PageLoad;

@@ -14,9 +14,9 @@
 	} from '$lib/components/ui/accordion';
 	import type { PageData } from './$types';
 
+	import { goto } from '$app/navigation';
 	import api from '@/lib/api/client';
 	import { onDestroy } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	type Props = {
 		data: PageData;
@@ -24,7 +24,7 @@
 	const { data }: Props = $props();
 
 	let groupWithExclusions = $state(data.groupWithExclusions);
-	const unsubsribe = api.groups.subscribe(data.id, (exc) => {
+	const unSubsribe = api.groups.subscribe(data.id, (exc) => {
 		groupWithExclusions = exc;
 	});
 
@@ -52,13 +52,25 @@
 		return await api.groups.removeExclusion(data.id, id, excludeId);
 	};
 
+	const memberExclusionCounts = $derived(
+		groupWithExclusions.reduce(
+			(acc, { member }) => {
+				acc[member.id] =
+					groupWithExclusions.filter((_) => _.excludedMembers.some((m) => m.id === member.id))
+						.length < data.config.maxMemberExclusions;
+				return acc;
+			},
+			{} as Record<number, boolean>
+		)
+	);
+
 	const s = async () => {
 		const c = await api.groups.getSantas(data.id);
 		console.log(c);
 	};
 
 	onDestroy(() => {
-		unsubsribe();
+		unSubsribe();
 	});
 </script>
 
@@ -77,7 +89,10 @@
 			.sort((a, b) => a.member.name.localeCompare(b.member.name)) as { member: otherMember }}
 			<div class="flex items-center space-x-2 space-y-2 p-1">
 				<Checkbox
-					disabled={!isMember}
+					disabled={!isMember ||
+						(!excludedMembers.some((_) => _.id === otherMember.id) &&
+							(!memberExclusionCounts[otherMember.id] ||
+								excludedMembers.length >= data.config.maxMemberExclusions))}
 					id={`${member.id}-${otherMember.id}`}
 					checked={excludedMembers.some((_) => _.id === otherMember.id)}
 					onCheckedChange={(v) => {

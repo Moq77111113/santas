@@ -1,5 +1,5 @@
 import { Client } from '$lib/api/client';
-import type { EnrichedGroup, Group, GroupExclusion, Member } from '../dto';
+import type { EnrichedGroup, Group, GroupConfig, GroupExclusion, Member } from '../dto';
 
 const base = `/api/group` as const;
 class GroupService {
@@ -21,7 +21,11 @@ class GroupService {
 		return this.client.request(`${base}/${id}/members`);
 	}
 
-	async exlusions(id: number): Promise<GroupExclusion[]> {
+	async config(id: number): Promise<GroupConfig> {
+		return this.client.request(`${base}/${id}/config`);
+	}
+
+	async exclusions(id: number): Promise<GroupExclusion[]> {
 		return this.client.request(`${base}/${id}/exclusion`);
 	}
 

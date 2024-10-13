@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 
+	"github.com/labstack/gommon/log"
 	"github.com/spf13/viper"
 )
 
@@ -19,9 +20,11 @@ type (
 	}
 
 	App struct {
-		Name          string
-		ShowBanner    bool
-		EncryptionKey string
+		Name                string
+		ShowBanner          bool
+		EncryptionKey       string
+		ExclusionPercentage float32
+		RoundUp             bool
 	}
 	Database struct {
 		Driver     string
@@ -51,5 +54,15 @@ func GetConfig() (Config, error) {
 		return c, err
 	}
 
+	check(&c)
+
 	return c, nil
+}
+
+func check(c *Config) {
+
+	if c.App.ExclusionPercentage < 0 || c.App.ExclusionPercentage > 1 {
+		log.Warnf("ExclusionPercentage is out of range, setting to default")
+		c.App.ExclusionPercentage = 0.15
+	}
 }

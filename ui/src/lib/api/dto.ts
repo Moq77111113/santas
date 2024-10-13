@@ -7,6 +7,10 @@ type EnrichedGroup = Group & {
 	owner: Member;
 };
 
+type GroupConfig = {
+	maxMemberExclusions: number
+}
+
 type Member = {
 	id: number;
 	name: string;
@@ -17,4 +21,5 @@ type GroupExclusion = {
 	excludedMembers: Member[];
 };
 
-export type { Group, Member, GroupExclusion, EnrichedGroup };
+export type { EnrichedGroup, Group, GroupConfig, GroupExclusion, Member };
+
