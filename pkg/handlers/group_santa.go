@@ -14,6 +14,5 @@ func (h *Group) Santa(ctx echo.Context) error {
 		ctx.Logger().Error(err)
 		return echo.NewHTTPError(http.StatusNotFound, "members not found")
 	}
-
 	return ctx.JSON(http.StatusOK, mms)
 }

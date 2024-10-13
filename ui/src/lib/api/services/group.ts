@@ -74,9 +74,6 @@ class GroupService {
 	 
 	subscribe(id: number, on: (ev: ExclusionsEvent | GroupConfigEvent) => void): () => void {
 		return this.client.subscribe(`${base}/${id}/events`, on);
-		
-
-
 	}
 }
 
