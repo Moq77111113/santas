@@ -33,6 +33,7 @@ COPY . .
 RUN rm -rf ui
 
 COPY ./ui/embed.go ./ui/embed.go
+
 COPY --from=builder /build/build ./ui/build
 
 RUN go build -o ./app ./cmd/chmoly
