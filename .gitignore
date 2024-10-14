@@ -23,3 +23,32 @@ go.work.sum
 
 # env file
 .env
+/.vscode/
+.idea
+
+bin/
+.DS_Store
+
+# goreleaser builds folder
+/.builds/
+
+# tests coverage
+coverage.out
+
+# generated markdown previews
+README.html
+CHANGELOG.html
+LICENSE.html
+
+
+node_modules
+.svelte-kit
+# ui build folder
+build
+
+
+# configuration file
+config.yaml
+
+# database file
+dbs/
